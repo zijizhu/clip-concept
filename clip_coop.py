@@ -220,8 +220,8 @@ if __name__ == '__main__':
 
         dataset_train = CUBDatasetSimple(os.path.join(args.dataset_dir, 'CUB'), split='train', transforms=transforms)
         dataset_val = CUBDatasetSimple(os.path.join(args.dataset_dir, 'CUB'), split='val', transforms=transforms)
-        dataloader_train = DataLoader(dataset=dataset_train, batch_size=args.batch_size, shuffle=True)
-        dataloader_val = DataLoader(dataset=dataset_val, batch_size=args.batch_size, shuffle=True)
+        dataloader_train = DataLoader(dataset=dataset_train, batch_size=args.batch_size, shuffle=True, num_workers=8)
+        dataloader_val = DataLoader(dataset=dataset_val, batch_size=args.batch_size, shuffle=True, num_workers=8)
 
         class_names = dataset_train.class_names
     elif args.dataset == 'CARS':
