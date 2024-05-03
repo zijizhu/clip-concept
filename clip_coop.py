@@ -24,8 +24,8 @@ from data.cub import CUBDatasetSimple
 class Bottleneck(nn.Module):
     def __init__(self) -> None:
         super().__init__()
-        self.linear1 = nn.Linear(1024, 256)
-        self.linear2 = nn.Linear(256, 1024)
+        self.linear1 = nn.Linear(512, 256)
+        self.linear2 = nn.Linear(256, 512)
     
     def forward(self, x):
         x = self.linear1(x)
