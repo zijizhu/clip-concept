@@ -6,6 +6,7 @@ import json
 import torch
 import logging
 import argparse
+import Augmentor
 import numpy as np
 from torch import nn
 from tqdm import tqdm
@@ -14,6 +15,7 @@ from clip.model import CLIP
 from torchinfo import summary
 from datetime import datetime
 import torch.nn.functional as F
+import torchvision.transforms as T
 from lightning import seed_everything
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard.writer import SummaryWriter
@@ -209,12 +211,15 @@ if __name__ == '__main__':
     clip_model, clip_preprocess = clip.load('ViT-B/16', device=torch.device('cpu'))
 
     if args.dataset == 'CUB':
-        # def collate_fn(batch):
-        #     image_list, label_list = list(zip(*batch))
-        #     return image_list, torch.stack(label_list)
+        p = Augmentor.Pipeline()
+        p.rotate(probability=0.4, max_left_rotation=20, max_right_rotation=20)
+        p.skew(probability=0.4)
+        p.shear(probability=0.4)
+        p.random_distortion(probability=0.4)
+        transforms = T.Compose([p.torch_transform(), T.RandomHorizontalFlip(p=0.5)] + clip_preprocess.transforms)
 
-        dataset_train = CUBDatasetSimple(os.path.join(args.dataset_dir, 'CUB'), split='train', transforms=clip_preprocess)
-        dataset_val = CUBDatasetSimple(os.path.join(args.dataset_dir, 'CUB'), split='val', transforms=clip_preprocess)
+        dataset_train = CUBDatasetSimple(os.path.join(args.dataset_dir, 'CUB'), split='train', transforms=transforms)
+        dataset_val = CUBDatasetSimple(os.path.join(args.dataset_dir, 'CUB'), split='val', transforms=transforms)
         dataloader_train = DataLoader(dataset=dataset_train, batch_size=args.batch_size, shuffle=True)
         dataloader_val = DataLoader(dataset=dataset_val, batch_size=args.batch_size, shuffle=True)
 
