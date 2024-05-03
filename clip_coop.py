@@ -219,7 +219,7 @@ if __name__ == '__main__':
         transforms = T.Compose([p.torch_transform(), T.RandomHorizontalFlip(p=0.5)] + clip_preprocess.transforms)
 
         dataset_train = CUBDatasetSimple(os.path.join(args.dataset_dir, 'CUB'), split='train', transforms=transforms)
-        dataset_val = CUBDatasetSimple(os.path.join(args.dataset_dir, 'CUB'), split='val', transforms=transforms)
+        dataset_val = CUBDatasetSimple(os.path.join(args.dataset_dir, 'CUB'), split='val', transforms=clip_preprocess)
         dataloader_train = DataLoader(dataset=dataset_train, batch_size=args.batch_size, shuffle=True, num_workers=8)
         dataloader_val = DataLoader(dataset=dataset_val, batch_size=args.batch_size, shuffle=True, num_workers=8)
 
