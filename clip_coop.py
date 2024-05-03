@@ -244,7 +244,7 @@ if __name__ == '__main__':
     # Classification using prototypes
     logger.info('Start training...')
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
-    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 5, 0.5)
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 10, 0.5)
 
     model.train()
     for epoch in range(args.epochs):
