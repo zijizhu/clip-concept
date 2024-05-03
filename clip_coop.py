@@ -187,7 +187,7 @@ if __name__ == '__main__':
                         ])
     logger = logging.getLogger(__name__)
     
-    clip_model, clip_preprocess = clip.load('ViT-B/16', device=device)
+    clip_model, clip_preprocess = clip.load('ViT-B/16', device=torch.device('cpu'))
 
     if args.dataset == 'CUB':
         # def collate_fn(batch):
@@ -215,6 +215,7 @@ if __name__ == '__main__':
 
     model = CLIPWithSoftPrompt(class_names, clip_model, clip.tokenize)
     print(summary(model))
+    model.to(device)
 
     # Classification using prototypes
     logger.info('Start training...')
