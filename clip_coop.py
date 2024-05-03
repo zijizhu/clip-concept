@@ -215,7 +215,7 @@ if __name__ == '__main__':
         p.rotate(probability=0.4, max_left_rotation=20, max_right_rotation=20)
         p.skew(probability=0.4)
         p.shear(probability=0.4, max_shear_left=10, max_shear_right=10)
-        p.random_distortion(probability=0.4)
+        p.random_distortion(probability=0.4, grid_height=16, grid_width=16, magnitude=8)
         transforms = T.Compose([p.torch_transform(), T.RandomHorizontalFlip(p=0.5)] + clip_preprocess.transforms)
 
         dataset_train = CUBDatasetSimple(os.path.join(args.dataset_dir, 'CUB'), split='train', transforms=transforms)
