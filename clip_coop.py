@@ -20,6 +20,19 @@ from torch.utils.tensorboard.writer import SummaryWriter
 
 from data.cub import CUBDatasetSimple
 
+
+class Bottleneck(nn.Module):
+    def __init__(self) -> None:
+        super().__init__()
+        self.linear1 = nn.Linear(1024, 256)
+        self.linear2 = nn.Linear(256, 1024)
+    
+    def forward(self, x):
+        x = self.linear1(x)
+        x = self.linear2(x)
+        return x
+
+
 class TextEncoder(nn.Module):
     def __init__(self, clip_model: CLIP):
         super().__init__()
@@ -79,18 +92,24 @@ class CLIPWithSoftPrompt(nn.Module):
         self.visual_encoder = clip_model.visual
         self.text_encoder = TextEncoder(clip_model)
         self.logit_scale = clip_model.logit_scale
-        self.dtype = clip_model.dtype
+
+        self.visual_adapter = Bottleneck()
+        self.text_adapter = Bottleneck()
 
         for param in self.visual_encoder.parameters():
             param.requires_grad = False
         for param in self.text_encoder.parameters():
             param.requires_grad = False
 
+        self.dtype = clip_model.dtype
+
     def forward(self, image):
         image_features = self.visual_encoder(image.to(self.dtype))
+        image_features = self.visual_adapter(image_features)
 
         soft_prompt_emb, prompt_token_ids = self.create_soft_prompt()
         text_features = self.text_encoder(soft_prompt_emb, prompt_token_ids)
+        text_features = self.text_adapter(text_features)
 
         image_features = image_features / image_features.norm(dim=-1, keepdim=True)
         text_features = text_features / text_features.norm(dim=-1, keepdim=True)
@@ -128,7 +147,7 @@ def train_epoch(model: nn.Module, dataloader: DataLoader, optimizer: torch.optim
     writer.add_scalar(f'Loss/train', loss_avg, epoch)
     writer.add_scalar(f'Acc/train', epoch_acc, epoch)
     logger.info(f'EPOCH {epoch} Train Loss: {loss_avg:.4f}')
-    logger.info(f'EPOCH {epoch} Train Aac: {epoch_acc:.4f}')
+    logger.info(f'EPOCH {epoch} Train Acc: {epoch_acc:.4f}')
 
 
 @torch.no_grad() 
@@ -147,7 +166,7 @@ def val_epoch(model, dataloader: DataLoader, writer: SummaryWriter,
     epoch_acc = running_corrects / dataset_size
 
     writer.add_scalar(f'Acc/val', epoch_acc, epoch)
-    logger.info(f'EPOCH {epoch} Val Aac: {epoch_acc:.4f}')
+    logger.info(f'EPOCH {epoch} Val Acc: {epoch_acc:.4f}')
 
 
 if __name__ == '__main__':
