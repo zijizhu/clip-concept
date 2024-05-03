@@ -48,7 +48,7 @@ class SoftPrompt(nn.Module):
         super().__init__()
 
         self.nctx = nctx
-        dtype, device = clip_model.dtype, clip_model.device
+        dtype = clip_model.dtype
         dim, = clip_model.ln_final.weight.shape
         self.ctx = nn.Parameter(torch.normal(mean=0, std=0.02, size=(nctx, dim), dtype=dtype))
 
@@ -58,7 +58,7 @@ class SoftPrompt(nn.Module):
         class_names = [name.replace("_", " ") for name in class_names]
         prompt_texts = [f'{dummy_texts} {name}.' for name in class_names]  # with dummy texts
 
-        self.prompt_token_ids = torch.cat([tokenizer_fn(p) for p in prompt_texts]).to(device)  # with dummy texts
+        self.prompt_token_ids = torch.cat([tokenizer_fn(p) for p in prompt_texts])  # with dummy texts
         with torch.no_grad():
             embeddings = clip_model.token_embedding(self.prompt_token_ids).to(dtype)  # with dummy texts
 
