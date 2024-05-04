@@ -1,4 +1,3 @@
-
 import os
 import sys
 import clip
@@ -21,18 +20,6 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard.writer import SummaryWriter
 
 from data.cub import CUBDatasetSimple
-
-
-class Bottleneck(nn.Module):
-    def __init__(self) -> None:
-        super().__init__()
-        self.linear1 = nn.Linear(512, 256)
-        self.linear2 = nn.Linear(256, 512)
-    
-    def forward(self, x):
-        x = self.linear1(x)
-        x = self.linear2(x)
-        return x
 
 
 class TextEncoder(nn.Module):
@@ -95,8 +82,8 @@ class CLIPWithSoftPrompt(nn.Module):
         self.text_encoder = TextEncoder(clip_model)
         self.logit_scale = clip_model.logit_scale
 
-        self.visual_adapter = Bottleneck()
-        self.text_adapter = Bottleneck()
+        self.visual_adapter = nn.Linear(512, 512)
+        self.text_adapter = nn.Linear(512, 512)
 
         for param in self.visual_encoder.parameters():
             param.requires_grad = False
