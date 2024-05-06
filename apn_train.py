@@ -38,19 +38,20 @@ def train_epoch(model: nn.Module, dataloader: DataLoader, optimizer: torch.optim
         images, class_tgts, attr_tgts = images.to(device), class_tgts.to(device), attr_tgts.to(device)
         global_logits, local_logits, attn_maps, prototypes, max_logit_coords = model(images)
 
-        l_ad = decorrelation_loss(prototypes, model.attr_groups)
-        l_cpt = compactness_loss(attn_maps, max_logit_coords)
+        # l_ad = decorrelation_loss(prototypes, model.attr_groups)
+        # l_cpt = compactness_loss(attn_maps, max_logit_coords)
         l_local = F.mse_loss(local_logits, attr_tgts)
         l_global = F.cross_entropy(global_logits, class_tgts)
 
-        total_loss = l_global + 0.1 * l_local + 0.01 * l_cpt + 0.2 * l_ad
+        # total_loss = l_global + 0.1 * l_local + 0.01 * l_cpt + 0.2 * l_ad
+        total_loss = l_global + 0.1 * l_local
 
         total_loss.backward()
         optimizer.step()
         optimizer.zero_grad()
 
-        running_ad_loss += l_ad * len(images)
-        running_cpt_loss += l_cpt * len(images)
+        # running_ad_loss += l_ad * len(images)
+        # running_cpt_loss += l_cpt * len(images)
         running_local_loss += l_local * len(images)
         running_global_loss += l_global * len(images)
         running_total_loss += total_loss * len(images)
