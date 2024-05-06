@@ -83,12 +83,11 @@ def val_epoch(model, dataloader: DataLoader, writer: SummaryWriter,
     running_corrects = 0
 
     for batch in tqdm(dataloader):
-        images, class_tgts, attr_tgts, all_class_attrs, attr_group_ids = batch
-        images, tgts, attr_tgts = images.to(device), tgts.do(device), attr_tgts.to(device)
+        images, class_tgts, attr_tgts = batch
+        images, class_tgts, attr_tgts = images.to(device), class_tgts.to(device), attr_tgts.to(device)
         global_logits, local_logits, attn_maps, prototypes, max_logit_coords = model(images)
-        class_pred = global_logits @ all_class_attrs
 
-        running_corrects += torch.sum(torch.argmax(class_pred.data, dim=-1) == class_tgts.data).item()
+        running_corrects += torch.sum(torch.argmax(global_logits.data, dim=-1) == class_tgts.data).item()
 
     # Log running losses
     epoch_acc = running_corrects / dataset_size
