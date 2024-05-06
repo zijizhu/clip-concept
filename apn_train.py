@@ -36,15 +36,15 @@ def train_epoch(model: nn.Module, dataloader: DataLoader, optimizer: torch.optim
     for batch in tqdm(dataloader):
         images, class_tgts, attr_tgts = batch
         images, class_tgts, attr_tgts = images.to(device), class_tgts.to(device), attr_tgts.to(device)
-        global_logits, local_logits, attn_maps, prototypes, max_logit_coords = model(images)
+        final_logits, local_logits, attn_maps, prototypes, max_logit_coords = model(images)
 
         # l_ad = decorrelation_loss(prototypes, model.attr_groups)
-        # l_cpt = compactness_loss(attn_maps, max_logit_coords)
+        l_cpt = compactness_loss(attn_maps, max_logit_coords)
         l_local = F.mse_loss(local_logits, attr_tgts)
-        l_global = F.cross_entropy(global_logits, class_tgts)
+        l_global = F.cross_entropy(final_logits, class_tgts)
 
         # total_loss = l_global + 0.1 * l_local + 0.01 * l_cpt + 0.2 * l_ad
-        total_loss = l_global + 0.1 * l_local
+        total_loss = l_global + 0.01 * l_local + 0.01 * l_cpt
 
         total_loss.backward()
         optimizer.step()
@@ -55,7 +55,7 @@ def train_epoch(model: nn.Module, dataloader: DataLoader, optimizer: torch.optim
         running_local_loss += l_local * len(images)
         running_global_loss += l_global * len(images)
         running_total_loss += total_loss * len(images)
-        running_corrects += torch.sum(torch.argmax(global_logits.data, dim=-1) == class_tgts.data).item()
+        running_corrects += torch.sum(torch.argmax(final_logits.data, dim=-1) == class_tgts.data).item()
 
     # Log running losses
     ad_loss_avg = running_ad_loss / dataset_size

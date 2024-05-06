@@ -14,7 +14,9 @@ class APN(nn.Module):
         self.dim = self.backbone.fc.weight.shape[-1]
         self.prototypes = nn.Parameter(torch.randn(self.k, self.dim))
         self.global_fc = nn.Linear(self.dim, self.k)
-        self.register_buffer('attr_class_map', attr_class_map)  # shape: [k, num_classes]
+        self.final_fc = nn.Linear(self.k, 200, bias=False)
+        self.final_fc.weight = nn.Parameter(attr_class_map)
+        self.coef = nn.Parameter(torch.tensor(0.5))
         self.register_buffer('attr_groups', attr_groups)  # shape: [k]
     
     def forward(self, x):
@@ -22,7 +24,7 @@ class APN(nn.Module):
 
         # Global branch
         feature_global = self.backbone.global_pool(features)
-        global_logits = self.global_fc(feature_global) @ self.attr_class_map.T
+        global_logits = self.global_fc(feature_global)  # shape: [b, k]
         # Local branch
         b, c, h, w = features.shape
         features = features.view(b, c, h*w).permute(0, 2, 1)  # shape: [b,h*w,c]
@@ -32,11 +34,13 @@ class APN(nn.Module):
         max_local_logits = torch.amax(attn_maps, dim=(-1, -2), keepdim=True)
         local_logits = max_local_logits.squeeze()  # shape: [b, k]
 
+        final_logits = self.final_fc(self.coef * global_logits + (1 - self.coef) * local_logits)
+
         max_logits_coords = torch.nonzero(attn_maps == max_local_logits)
         max_logits_coords = max_logits_coords[..., 2:]  # shape: [b*k,2]
 
         # shape: [b, k], [b, k], [b, k, h, w], [k, dim], [b*k, 2]
-        return global_logits, local_logits, attn_maps, self.prototypes, max_logits_coords
+        return final_logits, local_logits, attn_maps, self.prototypes, max_logits_coords
 
 
 def decorrelation_loss(prototypes: torch.Tensor, group_idxs: torch.Tensor):
@@ -59,6 +63,6 @@ def compactness_loss(attn_maps: torch.Tensor, max_logit_coords: torch.Tensor):
         # Expand coord of max logit for attn_map m to shape [h, w, 2] and unbind
         grid_ch, grid_cw = coords[None, None, ...].expand(h, w, -1).unbind(dim=-1)
         m_losses = m * ((grid_h - grid_ch) ** 2 + (grid_w - grid_cw) ** 2)
-        all_losses.append(torch.sum(m_losses))
+        all_losses.append(torch.mean(m_losses))
 
-    return sum(all_losses) 
+    return sum(all_losses) / len(all_losses)
