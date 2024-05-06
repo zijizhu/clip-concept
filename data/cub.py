@@ -75,7 +75,7 @@ class CUBDatasetSimple(Dataset):
         attribute_df['part_id'] = attribute_df['part_name'].map(coarse_grained_parts.index)
         self.attribute_df = attribute_df
 
-        self.class_attr_labels = class_attr_labels[:, SELECTED_CONCEPTS_V2]
+        self.class_attr_labels = class_attr_labels[:, SELECTED_CONCEPTS_V2] / 100
 
         main_df = (file_path_df
                    .merge(img_class_df, on='image_id')

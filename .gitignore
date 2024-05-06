@@ -1,3 +1,4 @@
 datasets
 CUB_runs
 __pycache__
+*.pt
