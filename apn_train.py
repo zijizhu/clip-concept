@@ -44,14 +44,14 @@ def train_epoch(model: nn.Module, dataloader: DataLoader, optimizer: torch.optim
         l_global = F.cross_entropy(final_logits, class_tgts)
 
         # total_loss = l_global + 0.1 * l_local + 0.01 * l_cpt + 0.2 * l_ad
-        total_loss = l_global + 0.01 * l_local + 0.01 * l_cpt
+        total_loss = l_global + 0.1 * l_local + 0.01 * l_cpt
 
         total_loss.backward()
         optimizer.step()
         optimizer.zero_grad()
 
         # running_ad_loss += l_ad * len(images)
-        # running_cpt_loss += l_cpt * len(images)
+        running_cpt_loss += l_cpt * len(images)
         running_local_loss += l_local * len(images)
         running_global_loss += l_global * len(images)
         running_total_loss += total_loss * len(images)

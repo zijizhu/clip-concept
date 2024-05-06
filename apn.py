@@ -16,7 +16,7 @@ class APN(nn.Module):
         self.global_fc = nn.Linear(self.dim, self.k)
         self.final_fc = nn.Linear(self.k, 200, bias=False)
         self.final_fc.weight = nn.Parameter(attr_class_map)
-        self.coef = nn.Parameter(torch.tensor(0.5))
+        self.register_buffer('coef', torch.tensor(0.2))  # shape: [k]
         self.register_buffer('attr_groups', attr_groups)  # shape: [k]
     
     def forward(self, x):
