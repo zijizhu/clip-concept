@@ -24,7 +24,11 @@ class APN(nn.Module):
         feature_global = self.backbone.global_pool(features)
         global_logits = self.global_fc(feature_global) @ self.attr_class_map.T
         # Local branch
-        attn_maps = torch.einsum('bchw,kc->bkhw', features, self.prototypes)
+        b, c, h, w = features.shape
+        features = features.view(b, c, h*w).permute(0, 2, 1)  # shape: [b,h*w,c]
+        prototypes_batch = self.prototypes.unsqueeze(0).expand(b, -1, -1)  # shape: [b,k,c]
+        attn_maps = 1 / torch.cdist(features, prototypes_batch, p=2).reshape(b, self.k, h, w)  # shape: [b,k,h,w]
+        # attn_maps = torch.einsum('bchw,kc->bkhw', features, self.prototypes)
         max_local_logits = torch.amax(attn_maps, dim=(-1, -2), keepdim=True)
         local_logits = max_local_logits.squeeze()  # shape: [b, k]
 
