@@ -42,8 +42,6 @@ def train_epoch(model: nn.Module, dataloader: DataLoader, optimizer: torch.optim
         l_cpt = compactness_loss(attn_maps, max_logit_coords)
         l_local = F.mse_loss(local_logits, attr_tgts)
         l_global = F.cross_entropy(global_logits, class_tgts)
-        print(local_logits.dtype, attr_tgts.dtype)
-        print(l_ad.dtype, l_cpt.dtype, l_local.dtype, l_global.dtype)
 
         total_loss = l_global + 0.1 * l_local + 0.01 * l_cpt + 0.2 * l_ad
 
