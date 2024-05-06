@@ -49,11 +49,11 @@ def train_epoch(model: nn.Module, dataloader: DataLoader, optimizer: torch.optim
         optimizer.step()
         optimizer.zero_grad()
 
-        running_ad_loss += running_ad_loss * len(images)
-        running_cpt_loss += running_cpt_loss * len(images)
-        running_local_loss += running_local_loss * len(images)
-        running_global_loss += running_global_loss * len(images)
-        running_total_loss += running_total_loss * len(images)
+        running_ad_loss += l_ad * len(images)
+        running_cpt_loss += l_cpt * len(images)
+        running_local_loss += l_local * len(images)
+        running_global_loss += l_global * len(images)
+        running_total_loss += total_loss * len(images)
         running_corrects += torch.sum(torch.argmax(global_logits.data, dim=-1) == class_tgts.data).item()
 
     # Log running losses
@@ -68,7 +68,8 @@ def train_epoch(model: nn.Module, dataloader: DataLoader, optimizer: torch.optim
     writer.add_scalar(f'Loss/train/cpt', cpt_loss_avg, epoch)
     writer.add_scalar(f'Loss/train/local',local_loss_avg, epoch)
     writer.add_scalar(f'Loss/train/global', global_loss_avg, epoch)
-    writer.add_scalar(f'Acc/train/total', total_loss_avg, epoch)
+    writer.add_scalar(f'Loss/train/total', total_loss_avg, epoch)
+    writer.add_scalar(f'Acc/train', epoch_acc, epoch)
     logger.info(f'EPOCH {epoch} Train ad Loss: {ad_loss_avg:.4f}')
     logger.info(f'EPOCH {epoch} Train cpt Loss: {cpt_loss_avg:.4f}')
     logger.info(f'EPOCH {epoch} Train local Loss: {local_loss_avg:.4f}')
