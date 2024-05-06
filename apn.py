@@ -16,7 +16,6 @@ class APN(nn.Module):
         self.global_fc = nn.Linear(self.dim, self.k)
         self.final_fc = nn.Linear(self.k, 200, bias=False)
         self.final_fc.weight = nn.Parameter(attr_class_map)
-        self.register_buffer('coef', torch.tensor(0.2))  # shape: [k]
         self.register_buffer('attr_groups', attr_groups)  # shape: [k]
     
     def forward(self, x):
@@ -32,15 +31,15 @@ class APN(nn.Module):
         attn_maps = 1 / torch.cdist(features, prototypes_batch, p=2).reshape(b, self.k, h, w)  # shape: [b,k,h,w]
         # attn_maps = torch.einsum('bchw,kc->bkhw', features, self.prototypes)
         max_local_logits = torch.amax(attn_maps, dim=(-1, -2), keepdim=True)
-        local_logits = max_local_logits.squeeze()  # shape: [b, k]
+        attr_logits = max_local_logits.squeeze()  # shape: [b, k]
 
-        final_logits = self.final_fc(self.coef * global_logits + (1 - self.coef) * local_logits)
+        final_logits = self.final_fc(attr_logits)
 
         max_logits_coords = torch.nonzero(attn_maps == max_local_logits)
         max_logits_coords = max_logits_coords[..., 2:]  # shape: [b*k,2]
 
         # shape: [b, k], [b, k], [b, k, h, w], [k, dim], [b*k, 2]
-        return final_logits, local_logits, attn_maps, self.prototypes, max_logits_coords
+        return final_logits, attr_logits, attn_maps, self.prototypes, max_logits_coords
 
 
 def decorrelation_loss(prototypes: torch.Tensor, group_idxs: torch.Tensor):
