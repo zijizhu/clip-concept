@@ -135,18 +135,31 @@ if __name__ == '__main__':
     # clip_model, clip_preprocess = clip.load('ViT-B/16', device=torch.device('cpu'))
 
     if args.dataset == 'CUB':
-        p = Augmentor.Pipeline()
-        p.rotate(probability=0.4, max_left_rotation=10, max_right_rotation=10)
-        p.shear(probability=0.4, max_shear_left=10, max_shear_right=10)
-        p.random_distortion(probability=0.4, grid_height=16, grid_width=16, magnitude=8)
-        p.skew(probability=0.4)
-        train_transforms = T.Compose([T.Resize(448), T.CenterCrop(448), p.torch_transform(), T.RandomHorizontalFlip(p=0.4), T.PILToTensor()])
-        test_transforms = T.Compose([T.Resize(448), T.CenterCrop(448), T.PILToTensor()])
+        # p = Augmentor.Pipeline()
+        # p.rotate(probability=0.4, max_left_rotation=10, max_right_rotation=10)
+        # p.shear(probability=0.4, max_shear_left=10, max_shear_right=10)
+        # p.random_distortion(probability=0.4, grid_height=16, grid_width=16, magnitude=8)
+        # p.skew(probability=0.4)
+        # train_transforms = T.Compose([T.Resize(448), T.CenterCrop(448), p.torch_transform(), T.RandomHorizontalFlip(p=0.4), T.PILToTensor()])
+        # test_transforms = T.Compose([T.Resize(448), T.CenterCrop(448), T.PILToTensor()])
+        train_transforms = T.Compose([
+            T.Resize(size=448, antialias=True),
+            T.RandomHorizontalFlip(),
+            T.ColorJitter(0.1),
+            T.RandomAffine(degrees=90, translate=(0.2, 0.2), scale=(0.8, 1.2)),
+            T.RandomCrop(448),
+            T.ToTensor()
+        ])
+        test_transforms = T.Compose([
+            T.Resize(size=448, antialias=True),
+            T.CenterCrop(size=448),
+            T.ToTensor()
+        ])
 
         dataset_train = CUBDatasetSimple(os.path.join(args.dataset_dir, 'CUB'), split='train', transforms=train_transforms)
         dataset_val = CUBDatasetSimple(os.path.join(args.dataset_dir, 'CUB'), split='val', transforms=test_transforms)
-        dataloader_train = DataLoader(dataset=dataset_train, batch_size=args.batch_size, shuffle=True)
-        dataloader_val = DataLoader(dataset=dataset_val, batch_size=args.batch_size, shuffle=True)
+        dataloader_train = DataLoader(dataset=dataset_train, batch_size=args.batch_size, shuffle=True, num_workers=8)
+        dataloader_val = DataLoader(dataset=dataset_val, batch_size=args.batch_size, shuffle=True, num_workers=8)
 
         k, attr_class_map, attr_groups = 107, dataset_train.attr_class_map, dataset_train.attr_groups
     elif args.dataset == 'CARS':
