@@ -99,7 +99,7 @@ def val_epoch(model, dataloader: DataLoader, writer: SummaryWriter,
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='CLIPTuning')
+    parser = argparse.ArgumentParser(description='Attribute Prototype Network')
     parser.add_argument('--dataset_dir', type=str, required=True)
     parser.add_argument('--dataset', type=str, choices=['CUB', 'CARS'], required=True)
 
@@ -119,12 +119,12 @@ if __name__ == '__main__':
     with open(os.path.join(log_dir, 'hparams.json'), 'w+') as fp:
         json.dump(vars(args), fp=fp, indent=4)
 
-    writer = SummaryWriter(log_dir=log_dir)
-    writer.add_text('Dataset', args.dataset)
-    writer.add_text('Device', str(device))
-    writer.add_text('Batch size', str(args.batch_size))
-    writer.add_text('Epochs', str(args.epochs))
-    writer.add_text('Seed', str(args.seed))
+    summary_writer = SummaryWriter(log_dir=log_dir)
+    summary_writer.add_text('Dataset', args.dataset)
+    summary_writer.add_text('Device', str(device))
+    summary_writer.add_text('Batch size', str(args.batch_size))
+    summary_writer.add_text('Epochs', str(args.epochs))
+    summary_writer.add_text('Seed', str(args.seed))
 
     logging.basicConfig(level=logging.INFO,
                         format='[%(asctime)s][%(name)s][%(levelname)s] - %(message)s', datefmt='%Y-%m-%d %H:%M:%S',
@@ -177,22 +177,22 @@ if __name__ == '__main__':
     else:
         raise NotImplementedError
 
-    model = APN(attr_class_map, k=k, attr_groups=attr_groups)
-    print(summary(model))
-    model.to(device)
+    net = APN(attr_class_map, k=k, attr_groups=attr_groups)
+    print(summary(net))
+    net.to(device)
 
     # Classification using prototypes
     logger.info('Start training...')
-    optimizer = torch.optim.AdamW(model.parameters(), betas=(0.5, 0.999), lr=args.lr)
+    optimizer = torch.optim.AdamW(net.parameters(), betas=(0.5, 0.999), lr=args.lr)
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 5, 0.5)
 
-    model.train()
+    net.train()
     for epoch in range(args.epochs):
-        train_epoch(model=model, dataloader=dataloader_train, optimizer=optimizer,
-                    writer=writer, dataset_size=len(dataset_train),
+        train_epoch(model=net, dataloader=dataloader_train, optimizer=optimizer,
+                    writer=summary_writer, dataset_size=len(dataset_train),
                     device=device, epoch=epoch, logger=logger)
-        val_epoch(model=model, dataloader=dataloader_val, writer=writer, dataset_size=len(dataset_val),
+        val_epoch(model=net, dataloader=dataloader_val, writer=summary_writer, dataset_size=len(dataset_val),
                   device=device, epoch=epoch, logger=logger)
-        torch.save({k: v.cpu() for k, v in model.state_dict().items()},
+        torch.save({k: v.cpu() for k, v in net.state_dict().items()},
                    os.path.join(log_dir, 'checkpoint.pt'))
         scheduler.step()

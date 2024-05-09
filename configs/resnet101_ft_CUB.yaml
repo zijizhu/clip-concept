@@ -1,0 +1,16 @@
+MODEL:
+  NAME: 'resnet101'
+  IMAGE_SIZE: 448
+  LOSSES:
+    L_CLS: 1
+DATASET:
+  NAME: "CUB"
+  NUM_CLASSES: 200
+  ROOT_DIR: "datasets"
+OPTIM:
+  LR: 1e-3
+  EPOCHS: 20
+  BATCH_SIZE: 16
+  STEP_SIZE: 5
+  GAMMA: 0.5
+SEED: 42

@@ -3,8 +3,9 @@ import torch
 import numpy as np
 import pandas as pd
 from PIL import Image
+import torchvision.transforms as t
 from torch.utils.data import Dataset
-import torchvision.transforms.functional as F
+import torchvision.transforms.functional as f
 
 
 SELECTED_CONCEPTS = [1, 4, 6, 7, 10, 14, 15, 20, 21, 23, 25, 29, 30, 35, 36, 38, 40, 44, 45,
@@ -48,7 +49,8 @@ fine2coarse =  {
     'primary': 'breast'
 }
 
-class CUBDatasetSimple(Dataset):
+
+class CUBDataset(Dataset):
     def __init__(self, dataset_dir: str, split='train', transforms=None) -> None:
         super().__init__()
         self.split = split
@@ -118,10 +120,36 @@ class CUBDatasetSimple(Dataset):
         attr_part_groups = self.attribute_df['part_id'].to_numpy()
 
         if self.transforms:
-            image_tensor = self.transforms(image)
+            pixel_values = self.transforms(image)
         else:
-            image_tensor = F.pil_to_tensor(image)
+            pixel_values = f.pil_to_tensor(image)
 
-        return (image_tensor.to(torch.float32),
-                torch.tensor(class_id, dtype=torch.long),
-                torch.tensor(class_attrs, dtype=torch.float32))
+        return {
+            'pixel_values': pixel_values,
+            'class_ids': torch.tensor(class_id, dtype=torch.long),
+            'attr_scores': torch.tensor(class_attrs, dtype=torch.float32)
+        }
+
+
+def get_cub_transforms(resolution: int = 448):
+    train_transforms = t.Compose([
+        t.Resize(size=resolution, antialias=True),
+        t.RandomHorizontalFlip(),
+        t.ColorJitter(0.1),
+        t.RandomAffine(degrees=90, translate=(0.2, 0.2), scale=(0.8, 1.2)),
+        t.RandomCrop(resolution),
+        t.ToTensor()
+    ])
+    test_transforms = t.Compose([
+        t.Resize(size=resolution, antialias=True),
+        t.CenterCrop(size=resolution),
+        t.ToTensor()
+    ])
+
+    return train_transforms, test_transforms
+
+# p = Augmentor.Pipeline()
+# p.rotate(probability=0.4, max_left_rotation=10, max_right_rotation=10)
+# p.shear(probability=0.4, max_shear_left=10, max_shear_right=10)
+# p.random_distortion(probability=0.4, grid_height=16, grid_width=16, magnitude=8)
+# p.skew(probability=0.4)
