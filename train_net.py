@@ -52,7 +52,7 @@ def train_epoch(model: nn.Module, loss_fn: nn.Module, loss_keys: list[str], acc_
 
 
 @torch.no_grad()
-def val_epoch(model: nn.Module, acc_fn: nn.Module, dataloader: DataLoader, writer: SummaryWriter,
+def val_epoch(model: nn.Module, acc_fn: nn.Module | Callable, dataloader: DataLoader, writer: SummaryWriter,
               dataset_size: int, epoch: int, batch_size: int, device: torch.device, logger: logging.Logger):
 
     running_corrects = 0
@@ -155,7 +155,8 @@ def main():
                     device=device, epoch=epoch, logger=logger)
 
         val_epoch(model=net, acc_fn=compute_corrects, dataloader=dataloader_val, writer=summary_writer,
-                  dataset_size=len(dataset_val), device=device, epoch=epoch, logger=logger)
+                  dataset_size=len(dataset_val), batch_size=cfg.OPTIM.BATCH_SIZE,
+                  device=device, epoch=epoch, logger=logger)
 
         torch.save({k: v.cpu() for k, v in net.state_dict().items()},
                    os.path.join(log_dir, f'{experiment_name}.pt'))
