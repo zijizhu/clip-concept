@@ -76,8 +76,11 @@ def main():
     args = parser.parse_args()
     config_path = Path(args.config_path)
     base_cfg = OmegaConf.load(config_path)
-    cli_cfg = OmegaConf.from_dotlist(args.options)
-    cfg = OmegaConf.merge(base_cfg, cli_cfg)
+    if args.options:
+        cli_cfg = OmegaConf.from_dotlist(args.options)
+        cfg = OmegaConf.merge(base_cfg, cli_cfg)
+    else:
+        cfg = base_cfg
 
     seed_everything(cfg.SEED)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
