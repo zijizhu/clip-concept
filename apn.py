@@ -90,9 +90,10 @@ class BackBone(nn.Module):
     def __init__(self, name: str, num_classes: int):
         super().__init__()
         assert name in ['resnet101', 'ViT-L/16']
-        if name == 'resnet101':
-            self.backbone = resnet101(weights=ResNet101_Weights.DEFAULT)
-            self.backbone.fc = nn.Linear(self.backbone.fc.in_features, num_classes)
+        # if name == 'resnet101':
+        # self.backbone = resnet101(weights=ResNet101_Weights.DEFAULT)
+        self.backbone = timm.create_model(name, pretrained=True)
+        self.backbone.fc = nn.Linear(self.backbone.fc.in_features, num_classes)
 
     def forward(self, batch_inputs: dict[str, torch.Tensor]):
         class_scores = self.backbone(batch_inputs['pixel_values'])
