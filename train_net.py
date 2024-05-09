@@ -146,6 +146,7 @@ def main():
 
     # Training loop
     logger.info('Start training...')
+    net.to(device)
     net.train()
     for epoch in range(cfg.OPTIM.EPOCHS):
         train_epoch(model=net, loss_fn=loss_fn, loss_keys=losses, acc_fn=compute_corrects,
