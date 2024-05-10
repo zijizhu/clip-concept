@@ -14,7 +14,7 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard.writer import SummaryWriter
 
 from data.cub import CUBDataset, get_cub_transforms
-from apn import load_backbone_for_ft, compute_corrects
+from apn import load_backbone_for_ft, load_apn, compute_corrects
 
 
 def train_epoch(model: nn.Module, loss_fn: nn.Module, loss_keys: list[str], acc_fn: nn.Module | Callable,
@@ -47,7 +47,7 @@ def train_epoch(model: nn.Module, loss_fn: nn.Module, loss_keys: list[str], acc_
         logger.info(f'EPOCH {epoch} Train {loss_name}: {loss_avg:.4f}')
 
     epoch_acc = running_corrects / dataset_size
-    writer.add_scalar(f'Acc/train', epoch_acc, epoch)
+    writer.add_scalar('Acc/train', epoch_acc, epoch)
     logger.info(f'EPOCH {epoch} Train Acc: {epoch_acc:.4f}')
 
 
@@ -64,7 +64,7 @@ def val_epoch(model: nn.Module, acc_fn: nn.Module | Callable, dataloader: DataLo
         running_corrects += acc_fn(outputs, batch_inputs)
 
     epoch_acc = running_corrects / dataset_size
-    writer.add_scalar(f'Acc/val', epoch_acc, epoch)
+    writer.add_scalar('Acc/val', epoch_acc, epoch)
     logger.info(f'EPOCH {epoch} Val Acc: {epoch_acc:.4f}')
 
 
@@ -139,10 +139,21 @@ def main():
     if 'ft' in experiment_name:
         net, loss_fn, optimizer, scheduler = load_backbone_for_ft(name=cfg.MODEL.NAME,
                                                                   num_classes=cfg.DATASET.NUM_CLASSES,
-                                                                  lr=cfg.OPTIM.LR)
+                                                                  lr=cfg.OPTIM.LR,
+                                                                  step_size=cfg.OPTIM.STEP_SIZE,
+                                                                  gamma=cfg.OPTIM.GAMMA)
         losses = ['l_total']  # Only need cross entropy for fine-tuning backbone
     else:
-        raise NotImplementedError
+        net, loss_fn, optimizer, scheduler = load_apn(num_classes=cfg.DATASET.NUM_CLASSES,
+                                                      num_attrs=cfg.DATASET.NUM_ATTRS,
+                                                      dist=cfg.MODEL.DIST,
+                                                      backbone_name=cfg.MODEL.BACKBONE.NAME,
+                                                      backbone_weight_path=cfg.MODEL.BACKBONE.CKPT_PATH,
+                                                      loss_coef_dict=dict(cfg.MODEL.LOSSES),
+                                                      lr=cfg.OPTIM.LR,
+                                                      step_size=cfg.OPTIM.STEP_SIZE,
+                                                      gamma=cfg.OPTIM.GAMMA)
+        losses = list(name.lower() for name in cfg.MODEL.LOSSES.keys()) + ['l_total']
 
     # Training loop
     logger.info('Start training...')
