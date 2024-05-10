@@ -1,11 +1,10 @@
 MODEL:
   NAME: 'resnet101'
   IMAGE_SIZE: 224
-  LOSSES:
-    L_CLS: 1
 DATASET:
   NAME: "CUB"
   NUM_CLASSES: 200
+  NUM_ATTRS: 107
   ROOT_DIR: "datasets"
 OPTIM:
   LR: 1e-3
