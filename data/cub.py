@@ -51,7 +51,7 @@ fine2coarse =  {
 
 
 class CUBDataset(Dataset):
-    def __init__(self, dataset_dir: str, split='train', transforms=None) -> None:
+    def __init__(self, dataset_dir: str, num_attrs: int, split='train', transforms=None) -> None:
         super().__init__()
         self.split = split
         self.dataset_dir = dataset_dir
@@ -77,7 +77,13 @@ class CUBDataset(Dataset):
         attribute_df['part_id'] = attribute_df['part_name'].map(coarse_grained_parts.index)
         self.attribute_df = attribute_df
 
-        self.class_attr_labels = class_attr_labels[:, SELECTED_CONCEPTS_V2] / 100
+        assert num_attrs in [107, 112, 312]
+        if num_attrs == 107:
+            self.class_attr_labels = class_attr_labels[:, SELECTED_CONCEPTS_V2] / 100
+        elif num_attrs == 112:
+            self.class_attr_labels = class_attr_labels[:, SELECTED_CONCEPTS] / 100
+        else:
+            self.class_attr_labels = class_attr_labels
 
         main_df = (file_path_df
                    .merge(img_class_df, on='image_id')
@@ -100,7 +106,7 @@ class CUBDataset(Dataset):
         self.transforms = transforms
     
     @property
-    def attr_class_map(self):
+    def class_attr_embs(self):
         return torch.tensor(self.class_attr_labels, dtype=torch.float32)
     
     @property
@@ -125,6 +131,7 @@ class CUBDataset(Dataset):
             pixel_values = f.pil_to_tensor(image)
 
         return {
+            'image_ids': img_id,
             'pixel_values': pixel_values,
             'class_ids': torch.tensor(class_id, dtype=torch.long),
             'attr_scores': torch.tensor(class_attrs, dtype=torch.float32)

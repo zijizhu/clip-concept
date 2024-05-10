@@ -144,6 +144,7 @@ def main():
                                                                   gamma=cfg.OPTIM.GAMMA)
         losses = ['l_total']  # Only need cross entropy for fine-tuning backbone
     else:
+        class_attr_embs = dataset_val.class_attr_embs
         net, loss_fn, optimizer, scheduler = load_apn(num_classes=cfg.DATASET.NUM_CLASSES,
                                                       num_attrs=cfg.DATASET.NUM_ATTRS,
                                                       dist=cfg.MODEL.DIST,

@@ -11,7 +11,7 @@ from torch.optim import lr_scheduler
 ########################################
 
 class APN(nn.Module):
-    def __init__(self, num_classes: int, num_attrs: int, backbone_name: str,
+    def __init__(self, num_classes: int, num_attrs: int, backbone_name: str, class_attr_embs: torch.Tensor,
                  backbone_weights: dict[str, torch.Tensor], dist: str = 'dot') -> None:
         super().__init__()
         self.k = num_attrs
@@ -22,7 +22,8 @@ class APN(nn.Module):
         self.dim = self.backbone.fc.weight.shape[-1]
 
         self.prototypes = nn.Parameter(torch.randn(self.k, self.dim))
-        self.final_fc = nn.Linear(self.k, num_classes)
+        self.register_buffer('fc_buffer', class_attr_embs)
+        # self.final_fc = nn.Linear(self.k, num_classes)
 
         self.backbone.load_state_dict(backbone_weights)
 
@@ -47,7 +48,8 @@ class APN(nn.Module):
         max_attn_scores = f.max_pool2d(attn_maps, kernel_size=(h, w))  # shape: [b,k,1,1]
         attr_scores = max_attn_scores.squeeze()  # shape: [b, k]
 
-        class_scores = self.final_fc(attr_scores)
+        # class_scores = self.final_fc(attr_scores)
+        class_scores = attr_scores @ self.fc_buffer.T
 
         # shape: [b,k], [b,k], [b,k,h,w]
         return {
