@@ -86,7 +86,6 @@ class APNLoss(nn.Module):
         max_attn_coords = max_attn_coords[..., 2:]  # shape: [b*k,2]
 
         attn_maps = attn_maps.reshape(b*k, h, w)
-        print(attn_maps.shape, max_attn_coords.shape)
 
         all_losses = []
         for m, coords in zip(attn_maps, max_attn_coords):
