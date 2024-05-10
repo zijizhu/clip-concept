@@ -85,7 +85,7 @@ class APNLoss(nn.Module):
         max_attn_coords = torch.nonzero(attn_maps == max_attn_scores)  # shape: [b*k, 4]
         max_attn_coords = max_attn_coords[..., 2:]  # shape: [b*k,2]
 
-        attn_maps = attn_maps.reshape(b*k, h, w)
+        attn_maps = f.sigmoid(attn_maps.reshape(b*k, h, w))  # range: [0,1]
 
         all_losses = []
         for m, coords in zip(attn_maps, max_attn_coords):
