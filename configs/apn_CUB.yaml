@@ -7,7 +7,7 @@ MODEL:
   IMAGE_SIZE: 448
   LOSSES:
     L_CLS: 1
-    L_REG: 1
+    L_REG: 0.1
     L_CPT: 0.2
 DATASET:
   NAME: "CUB"
@@ -16,8 +16,8 @@ DATASET:
   ROOT_DIR: "datasets"
 OPTIM:
   LR: 1e-3
-  EPOCHS: 30
+  EPOCHS: 60
   BATCH_SIZE: 16
-  STEP_SIZE: 10
+  STEP_SIZE: 40
   GAMMA: 0.5
 SEED: 42
