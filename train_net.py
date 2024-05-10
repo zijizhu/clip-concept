@@ -117,15 +117,15 @@ def main():
                         ])
     logger = logging.getLogger(__name__)
 
-    #################
-    # Setup dataset #
-    #################
+    ###########################
+    # Setup dataset and model #
+    ###########################
 
     if cfg.DATASET.NAME == 'CUB':
         train_transforms, test_transforms = get_cub_transforms(resolution=cfg.MODEL.IMAGE_SIZE)
-        dataset_train = CUBDataset(os.path.join(cfg.DATASET.ROOT_DIR, 'CUB'),
+        dataset_train = CUBDataset(os.path.join(cfg.DATASET.ROOT_DIR, 'CUB'), num_attrs=cfg.DATASET.NUM_ATTRS,
                                    split='train', transforms=train_transforms)
-        dataset_val = CUBDataset(os.path.join(cfg.DATASET.ROOT_DIR, 'CUB'),
+        dataset_val = CUBDataset(os.path.join(cfg.DATASET.ROOT_DIR, 'CUB'), num_attrs=cfg.DATASET.NUM_ATTRS,
                                  split='val', transforms=test_transforms)
         dataloader_train = DataLoader(dataset=dataset_train, batch_size=cfg.OPTIM.BATCH_SIZE,
                                       shuffle=True, num_workers=8)
@@ -144,10 +144,11 @@ def main():
                                                                   gamma=cfg.OPTIM.GAMMA)
         losses = ['l_total']  # Only need cross entropy for fine-tuning backbone
     else:
-        class_attr_embs = dataset_val.class_attr_embs
+        class_attr_embs = dataset_train.class_attr_embs
         net, loss_fn, optimizer, scheduler = load_apn(num_classes=cfg.DATASET.NUM_CLASSES,
                                                       num_attrs=cfg.DATASET.NUM_ATTRS,
                                                       dist=cfg.MODEL.DIST,
+                                                      class_attr_embs=class_attr_embs,
                                                       backbone_name=cfg.MODEL.BACKBONE.NAME,
                                                       backbone_weight_path=cfg.MODEL.BACKBONE.CKPT_PATH,
                                                       loss_coef_dict=dict(cfg.MODEL.LOSSES),
@@ -156,7 +157,10 @@ def main():
                                                       gamma=cfg.OPTIM.GAMMA)
         losses = list(name.lower() for name in cfg.MODEL.LOSSES.keys()) + ['l_total']
 
-    # Training loop
+    #################
+    # Training loop #
+    #################
+
     logger.info('Start training...')
     net.to(device)
     net.train()

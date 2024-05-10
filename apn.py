@@ -113,6 +113,7 @@ def load_apn(
         num_classes: int,
         num_attrs: int,
         dist: str, lr: float,
+        class_attr_embs: torch.Tensor,
         backbone_name: str,
         backbone_weight_path: str,
         loss_coef_dict: dict[str, float],
@@ -120,7 +121,7 @@ def load_apn(
         gamma: float
     ) -> tuple[nn.Module, nn.Module, optim.Optimizer, lr_scheduler.LRScheduler]:
     backbone_weights = torch.load(backbone_weight_path, map_location='cpu')
-    apn_net = APN(num_classes=num_classes, num_attrs=num_attrs,
+    apn_net = APN(num_classes=num_classes, num_attrs=num_attrs, class_attr_embs=class_attr_embs,
                   backbone_name=backbone_name, backbone_weights=backbone_weights, dist=dist)
     apn_loss = APNLoss(loss_coef_dict)
 
