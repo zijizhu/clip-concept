@@ -168,12 +168,16 @@ class PDNLoss(nn.Module):
         #                                                            num_parts=self.num_parts)
         # }
         l_cls = self.loss_coef_dict['l_cls'] * self.l_cls(model_outputs['class_scores'],
-                                                           batch_inputs['class_ids']).mean(),
+                                                           batch_inputs['class_ids']).mean()
+
         l_conc = self.loss_coef_dict['l_conc'] * conc_loss(loc_x, loc_y, grid_x, grid_y,
-                                                            model_outputs['attn_maps']),
-        l_pres = self.loss_coef_dict['l_pres'] * pres_loss(model_outputs['attn_maps']),
+                                                            model_outputs['attn_maps'])
+
+        l_pres = self.loss_coef_dict['l_pres'] * pres_loss(model_outputs['attn_maps'])
+
         l_orth = self.loss_coef_dict['l_orth'] * orth_loss(self.num_parts, model_outputs['part_features'],
-                                                            model_outputs['part_features'].device),
+                                                            model_outputs['part_features'].device)
+
         l_equiv = self.loss_coef_dict['l_equiv'] * equiv_loss(batch_inputs['pixel_values'],
                                                                model_outputs['attn_maps'],
                                                                net, device=model_outputs['attn_maps'].device,
