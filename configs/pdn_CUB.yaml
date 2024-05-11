@@ -1,0 +1,24 @@
+MODEL:
+  NAME: 'pdn'
+  DIST: 'dot'
+  BACKBONE:
+    NAME: 'resnet101'
+  IMAGE_SIZE: 448
+  LOSSES:
+    L_CLS: 1
+    L_CONC: 1000
+    L_PRES: 1
+    L_ORTH: 1
+    L_EQUIV: 1
+DATASET:
+  NAME: "CUB"
+  NUM_CLASSES: 200
+  NUM_ATTRS: 312
+  ROOT_DIR: "datasets"
+OPTIM:
+  LR: 1e-3
+  EPOCHS: 28
+  BATCH_SIZE: 16
+  STEP_SIZE: 5
+  GAMMA: 0.5
+SEED: 42

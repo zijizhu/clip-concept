@@ -61,6 +61,7 @@ class CUBDataset(Dataset):
             header=None,
             names=["attribute_id", "attribute_name"],
         ).drop(columns=["attribute_id"])
+
         attribute_df = attribute_df.iloc[SELECTED_CONCEPTS_V2]
         part_pattern = "|".join(fine_grained_parts)
         attribute_df["part_name"] = attribute_df["attribute_name"].str.extract(
@@ -110,6 +111,19 @@ class CUBDataset(Dataset):
     @property
     def attr_groups(self):
         return torch.tensor(self.attribute_df["part_id"].to_numpy())
+    
+    def get_topk_attributes(self,
+                            class_id: torch.Tensor | int,
+                            k: int = 5,
+                            pred_scores: torch.Tensor | None = None):
+        if isinstance(class_id, torch.Tensor):
+            class_id = class_id.item()
+        values, indices = torch.topk(self.class_attr_embs[class_id], k=k)
+        top_attribute_df = self.attribute_df[indices.numpy()]
+        top_attribute_df['gt_scores'] = values.numpy()
+        if pred_scores:
+            top_attribute_df['pred_scores'] = pred_scores.numpy()
+        return top_attribute_df
 
     def __len__(self):
         return len(self.img_ids[self.split])
