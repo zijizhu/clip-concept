@@ -19,7 +19,7 @@ from lightning import seed_everything
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard.writer import SummaryWriter
 
-from data.cub import CUBDatasetSimple
+from data.cub.cub_dataset import CUBDatasetSimple
 
 
 class TextEncoder(nn.Module):

@@ -13,7 +13,7 @@ from lightning import seed_everything
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard.writer import SummaryWriter
 
-from data.cub import CUBDataset, get_cub_transforms
+from data.cub.cub_dataset import CUBDataset, get_cub_transforms
 from apn import load_backbone_for_ft, load_apn, compute_corrects
 
 
