@@ -59,7 +59,7 @@ def val_epoch(model: nn.Module, acc_fn: nn.Module | Callable, dataloader: DataLo
 
     for batch_inputs in tqdm(dataloader):
         batch_inputs = {k: v.to(device) for k, v in batch_inputs.items()}
-        outputs = model(batch_inputs)
+        outputs = model(batch_inputs['pixel_values'])
 
         running_corrects += acc_fn(outputs, batch_inputs)
 
