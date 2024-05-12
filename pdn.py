@@ -13,12 +13,12 @@ class PDN(torch.nn.Module):
         super().__init__()
 
         # The base model
-        backbone = timm.create_model('resnet101', pretrained=True)
+        # backbone = timm.create_model('resnet101', pretrained=True)
         self.num_landmarks = num_landmarks
         self.conv1 = backbone.conv1
         self.bn1 = backbone.bn1
         # self.relu = backbone.relu
-        self.relu = nn.ReLU()
+        self.relu = backbone.relu
         self.maxpool = backbone.maxpool
         self.layer1 = backbone.layer1
         self.layer2 = backbone.layer2
