@@ -40,19 +40,15 @@ class PDN(torch.nn.Module):
         # Compute per landmark attention maps
         # (b - a)^2 = b^2 - 2ab + a^2, b = feature maps resnet, a = convolution kernel
         ab = self.fc_landmarks(x)
-        b_sq = x.pow(2).sum(1, keepdim=True)
-        b_sq = b_sq.expand(-1, self.num_landmarks + 1, -1, -1)
-        a_sq = self.fc_landmarks.weight.pow(2).sum(1).unsqueeze(1).expand(-1, b, h, w)
-        a_sq = a_sq.permute(1, 0, 2, 3)
+        b_sq = x.pow(2).sum(1, keepdim=True).expand(-1, self.num_landmarks + 1, -1, -1)
+        a_sq = self.fc_landmarks.weight.sum(1).unsqueeze(0).expand(b, -1, h, w)
         maps = b_sq - 2 * ab + a_sq
-        maps = -maps
-
-        # Softmax so that the attention maps for each pixel add up to 1
-        maps = self.softmax(maps)
+        maps = self.softmax(-maps)
 
         # Use maps to get weighted average features per landmark
         feature_tensor = x
-        all_features = ((maps).unsqueeze(1) * feature_tensor.unsqueeze(2)).mean(-1).mean(-1)
+        # shape: [b,1,k,h,w],[b,c,1,h,w] -> [b,c,k]
+        all_features = (maps.unsqueeze(1) * feature_tensor.unsqueeze(2)).mean((-1, -2))
 
         # Classification based on the landmarks
         all_features_modulated = all_features * self.modulation
