@@ -137,6 +137,7 @@ def main():
         raise NotImplementedError
 
     net, loss_fn, optimizer, scheduler = load_pdn(loss_coef_dict=dict(cfg.MODEL.LOSSES),
+                                                  num_parts=cfg.MODEL.NUM_PARTS,
                                                   lr=cfg.OPTIM.LR)
     losses = list(name.lower() for name in cfg.MODEL.LOSSES.keys()) + ['l_total']
 

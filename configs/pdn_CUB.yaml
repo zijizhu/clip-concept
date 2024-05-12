@@ -4,6 +4,7 @@ MODEL:
   BACKBONE:
     NAME: 'resnet101'
   IMAGE_SIZE: 448
+  NUM_PARTS: 4
   LOSSES:
     L_CLS: 1
     L_CONC: 1000
