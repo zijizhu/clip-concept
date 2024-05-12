@@ -1,5 +1,4 @@
 import torch
-import timm
 import numpy as np
 from torch import nn
 import torch.nn.functional as F
@@ -62,45 +61,34 @@ class PDN(torch.nn.Module):
         }
 
 
-def landmark_coordinates(maps: torch.Tensor, device: torch.device) -> \
-        tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
-    grid_x, grid_y = torch.meshgrid(torch.arange(maps.shape[2]),
-                                    torch.arange(maps.shape[3]))
-    grid_x = grid_x.unsqueeze(0).unsqueeze(0).to(device)
-    grid_y = grid_y.unsqueeze(0).unsqueeze(0).to(device)
+def l_concentration(attn_maps: torch.Tensor) -> torch.Tensor:
+    b, k, h, w = attn_maps.shape
+    grid_x, grid_y = torch.meshgrid(torch.arange(w), torch.arange(h), indexing='xy')
 
-    map_sums = maps.sum(3).sum(2).detach()
-    maps_x = grid_x * maps
-    maps_y = grid_y * maps
-    loc_x = maps_x.sum(3).sum(2) / map_sums
-    loc_y = maps_y.sum(3).sum(2) / map_sums
-    return loc_x, loc_y, grid_x, grid_y
+    grid_x = grid_x[None, None, ...].to(attn_maps.device)
+    grid_y = grid_y[None, None, ...].to(attn_maps.device)
 
+    attn_map_sums = attn_maps.sum((-1, -2)).detach()
+    cx = torch.sum(grid_x * attn_maps, dim=(-1, -2)) / attn_map_sums
+    cy = torch.sum(grid_y * attn_maps, dim=(-1, -2)) / attn_map_sums
 
-def conc_loss(centroid_x: torch.Tensor,
-              centroid_y: torch.Tensor,
-              grid_x: torch.Tensor,
-              grid_y: torch.Tensor,
-              maps: torch.Tensor) -> torch.Tensor:
-    spatial_var_x = ((centroid_x.unsqueeze(-1).unsqueeze(-1) - grid_x) / grid_x.shape[-1]) ** 2
-    spatial_var_y = ((centroid_y.unsqueeze(-1).unsqueeze(-1) - grid_y) / grid_y.shape[-2]) ** 2
-    spatial_var_weighted = (spatial_var_x + spatial_var_y) * maps
-    loss_conc = spatial_var_weighted[:, 0:-1, :, :].mean()
-    return loss_conc
+    spatial_var_x = ((cx[..., None, None] - grid_x) / w) ** 2
+    spatial_var_y = ((cy[..., None, None] - grid_y) / h) ** 2
+    spatial_var_weighted = (spatial_var_x + spatial_var_y) * attn_maps
+    return spatial_var_weighted[:, 0:-1, :, :].mean()
 
 
-def pres_loss(maps: torch.Tensor):
-    loss_pres = F.avg_pool2d(maps[:, :, 2:-2, 2:-2], 3, stride=1).max(-1)[0].max(-1)[0].max(0)[0].mean()
-    loss_pres = (1 - loss_pres)
-    return loss_pres
+def l_presence(attn_maps: torch.Tensor):
+    maps_pooled = F.avg_pool2d(attn_maps[:, :, 2:-2, 2:-2], 3, stride=1)
+    mean_presence = torch.amax(maps_pooled, dim=(0, 2, 3)).mean()
+    return 1 - mean_presence
 
 
-def orth_loss(num_parts: int, landmark_features: torch.Tensor, device) -> torch.Tensor:
-    normed_feature = F.normalize(landmark_features, dim=1)
-    similarity = torch.matmul(normed_feature.permute(0, 2, 1), normed_feature)
-    similarity = torch.sub(similarity, torch.eye(num_parts + 1).to(device))
-    loss_orth = torch.mean(torch.square(similarity))
-    return loss_orth
+def l_orthogonality(num_parts: int, features: torch.Tensor) -> torch.Tensor:
+    features = F.normalize(features, dim=1)
+    similarities = features.permute(0, 2, 1) @ features
+    similarities = similarities - torch.eye(num_parts + 1).to(features.device)
+    return torch.mean(torch.square(similarities))
 
 
 def rigid_transform(img: torch.Tensor, angle: int, translate: list[int], scale: float, invert: bool=False):
@@ -151,12 +139,11 @@ class PDNLoss(nn.Module):
         )
         images, labels = batch_inputs['pixel_values'], batch_inputs['class_ids']
         device = labels.device
-        loc_x, loc_y, grid_x, grid_y = landmark_coordinates(attn_maps, device)
         loss_dict = {
             'l_cls': self.loss_coef_dict['l_cls'] * self.l_cls(preds, labels),
-            'l_conc': self.loss_coef_dict['l_conc'] * conc_loss(loc_x, loc_y, grid_x, grid_y, attn_maps),
-            'l_pres': self.loss_coef_dict['l_pres'] * pres_loss(attn_maps),
-            'l_orth': self.loss_coef_dict['l_orth'] * orth_loss(self.num_parts, part_features, device),
+            'l_conc': self.loss_coef_dict['l_conc'] * l_concentration(attn_maps),
+            'l_pres': self.loss_coef_dict['l_pres'] * l_presence(attn_maps),
+            'l_orth': self.loss_coef_dict['l_orth'] * l_orthogonality(self.num_parts, part_features),
             'l_equiv': self.loss_coef_dict['l_equiv'] * equiv_loss(images, attn_maps, net, device=device,
                                                                    num_parts=self.num_parts)
         }
