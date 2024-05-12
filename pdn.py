@@ -88,8 +88,9 @@ def conc_loss(centroid_x: torch.Tensor,
     loss_conc = spatial_var_weighted[:, 0:-1, :, :].mean()
     return loss_conc
 
-def pres_loss(maps):
-    loss_pres = torch.nn.functional.avg_pool2d(maps[:, :, 2:-2, 2:-2], 3, stride=1).max(-1)[0].max(-1)[0].max(0)[0].mean()
+
+def pres_loss(maps: torch.Tensor):
+    loss_pres = F.avg_pool2d(maps[:, :, 2:-2, 2:-2], 3, stride=1).max(-1)[0].max(-1)[0].max(0)[0].mean()
     loss_pres = (1 - loss_pres)
     return loss_pres
 
@@ -139,38 +140,46 @@ class PDNLoss(nn.Module):
     def __init__(self, loss_coef_dict: dict[str, float], num_parts: int) -> None:
         super().__init__()
         self.loss_coef_dict = {k.lower(): v for k, v in loss_coef_dict.items()}
-        self.l_cls = nn.CrossEntropyLoss(reduction='none')
+        self.l_cls = nn.CrossEntropyLoss()
         self.num_parts = num_parts
     
     def forward(self, model_outputs: dict[str, torch.Tensor], batch_inputs: dict[str, torch.Tensor], net: nn.Module):
-        loc_x, loc_y, grid_x, grid_y = landmark_coordinates(model_outputs['attn_maps'], model_outputs['attn_maps'].device)
-        # loss_dict = {
-        #     'l_cls': self.loss_coef_dict['l_cls'] * self.l_cls(model_outputs['class_scores'], batch_inputs['class_ids']).mean(),
-        #     'l_conc': self.loss_coef_dict['l_conc'] * conc_loss(loc_x, loc_y, grid_x, grid_y, model_outputs['attn_maps']),
-        #     'l_pres': self.loss_coef_dict['l_pres'] * pres_loss(model_outputs['attn_maps']),
-        #     'l_orth': self.loss_coef_dict['l_orth'] * orth_loss(self.num_parts, model_outputs['part_features'], model_outputs['part_features'].device),
-        #     'l_equiv': self.loss_coef_dict['l_equiv'] * equiv_loss(batch_inputs['pixel_values'], model_outputs['attn_maps'],
-        #                                                            net, device=model_outputs['attn_maps'].device,
-        #                                                            num_parts=self.num_parts)
-        # }
-        l_cls = self.loss_coef_dict['l_cls'] * self.l_cls(model_outputs['class_scores'],
-                                                           batch_inputs['class_ids']).mean()
-
-        l_conc = self.loss_coef_dict['l_conc'] * conc_loss(loc_x, loc_y, grid_x, grid_y,
-                                                            model_outputs['attn_maps'])
-
-        l_pres = self.loss_coef_dict['l_pres'] * pres_loss(model_outputs['attn_maps'])
-
-        l_orth = self.loss_coef_dict['l_orth'] * orth_loss(self.num_parts, model_outputs['part_features'],
-                                                            model_outputs['part_features'].device)
-
-        l_equiv = self.loss_coef_dict['l_equiv'] * equiv_loss(batch_inputs['pixel_values'],
-                                                               model_outputs['attn_maps'],
-                                                               net, device=model_outputs['attn_maps'].device,
-                                                               num_parts=self.num_parts)
-        l_total = l_cls + l_conc + l_pres + l_orth + l_equiv
-        loss_dict = {'l_cls': l_cls, 'l_conc': l_conc,
-                     'l_pres': l_pres, 'l_orth': l_orth, 'l_equiv': l_equiv, 'l_total': l_total}
+        preds, attn_maps, part_features = (
+            model_outputs['class_scores'],
+            model_outputs['attn_maps'],
+            model_outputs['part_features']
+        )
+        images, labels = batch_inputs['pixel_values'], batch_inputs['class_ids']
+        device = labels.device
+        loc_x, loc_y, grid_x, grid_y = landmark_coordinates(attn_maps, device)
+        loss_dict = {
+            'l_cls': self.loss_coef_dict['l_cls'] * self.l_cls(preds, labels),
+            'l_conc': self.loss_coef_dict['l_conc'] * conc_loss(loc_x, loc_y, grid_x, grid_y, attn_maps),
+            'l_pres': self.loss_coef_dict['l_pres'] * pres_loss(attn_maps),
+            'l_orth': self.loss_coef_dict['l_orth'] * orth_loss(self.num_parts, part_features, device),
+            'l_equiv': self.loss_coef_dict['l_equiv'] * equiv_loss(images, attn_maps, net, device=device,
+                                                                   num_parts=self.num_parts)
+        }
+        l_total = sum(loss_dict.values())
+        loss_dict['l_total'] = l_total
+        # l_cls = self.loss_coef_dict['l_cls'] * self.l_cls(model_outputs['class_scores'],
+        #                                                    batch_inputs['class_ids']).mean()
+        #
+        # l_conc = self.loss_coef_dict['l_conc'] * conc_loss(loc_x, loc_y, grid_x, grid_y,
+        #                                                     model_outputs['attn_maps'])
+        #
+        # l_pres = self.loss_coef_dict['l_pres'] * pres_loss(model_outputs['attn_maps'])
+        #
+        # l_orth = self.loss_coef_dict['l_orth'] * orth_loss(self.num_parts, model_outputs['part_features'],
+        #                                                     model_outputs['part_features'].device)
+        #
+        # l_equiv = self.loss_coef_dict['l_equiv'] * equiv_loss(batch_inputs['pixel_values'],
+        #                                                        model_outputs['attn_maps'],
+        #                                                        net, device=model_outputs['attn_maps'].device,
+        #                                                        num_parts=self.num_parts)
+        # l_total = l_cls + l_conc + l_pres + l_orth + l_equiv
+        # loss_dict = {'l_cls': l_cls, 'l_conc': l_conc,
+        #              'l_pres': l_pres, 'l_orth': l_orth, 'l_equiv': l_equiv, 'l_total': l_total}
         return loss_dict
 
 
