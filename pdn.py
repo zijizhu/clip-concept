@@ -31,10 +31,10 @@ class PDN(torch.nn.Module):
     def forward(self, x: torch.Tensor):
         # Pretrained ResNet part of the model
         features = self.backbone(x)
-        l3, l4 = features['l3'], features['l4']
+        l3, l4 = features['layer3'], features['layer4']
         b, c, h, w = l3.shape
 
-        x = F.interpolate(l4, size=(h, w), mode='bilinear') # shape: [b, 2048, h, w], e.g. h=w=14
+        x = F.interpolate(l4, size=(h, w), mode='bilinear')  # shape: [b, 2048, h, w], e.g. h=w=14
         x = torch.cat([x, l3], dim=1)
 
         # Compute per landmark attention maps
