@@ -5,30 +5,23 @@ from torch import nn
 import torch.nn.functional as F
 from torchvision.models import resnet101, ResNet101_Weights, ResNet
 from torchvision.transforms.functional import affine, InterpolationMode
+from torchvision.models.feature_extraction import create_feature_extractor
 
 
 class PDN(torch.nn.Module):
     def __init__(self, backbone: ResNet, num_landmarks: int = 8,
                  num_classes: int = 2000, landmark_dropout: float = 0.3) -> None:
         super().__init__()
-
-        # The base model
-        # backbone = timm.create_model('resnet101', pretrained=True)
+        self.dim = backbone.layer4[0].conv1.in_channels + backbone.fc.in_features
+        return_nodes = {
+            'layer3.22.relu_2': 'layer3',
+            'layer4.2.relu_2': 'layer4',
+        }
+        self.backbone = create_feature_extractor(backbone, return_nodes=return_nodes)
         self.num_landmarks = num_landmarks
-        self.conv1 = backbone.conv1
-        self.bn1 = backbone.bn1
-        # self.relu = backbone.relu
-        self.relu = backbone.relu
-        self.maxpool = backbone.maxpool
-        self.layer1 = backbone.layer1
-        self.layer2 = backbone.layer2
-        self.layer3 = backbone.layer3
-        self.layer4 = backbone.layer4
-        self.finalpool = torch.nn.AdaptiveAvgPool2d(1)
 
         # New part of the model
         self.softmax = torch.nn.Softmax2d()
-        self.batchnorm = nn.BatchNorm2d(11)
         self.fc_landmarks = torch.nn.Conv2d(1024 + 2048, num_landmarks + 1, 1, bias=False)
         self.fc_class_landmarks = torch.nn.Linear(1024 + 2048, num_classes, bias=False)
         self.modulation = torch.nn.Parameter(torch.ones((1,1024 + 2048,num_landmarks + 1)))
@@ -37,25 +30,19 @@ class PDN(torch.nn.Module):
     
     def forward(self, x: torch.Tensor):
         # Pretrained ResNet part of the model
-        x = self.conv1(x)
-        x = self.bn1(x)
-        x = self.relu(x)
-        x = self.maxpool(x)
-        x = self.layer1(x)
-        x = self.layer2(x)
-        l3 = self.layer3(x)
-        x = self.layer4(l3)
-        # x = torch.nn.functional.upsample_bilinear(x, size=(l3.shape[-2], l3.shape[-1]))
-        x = torch.nn.functional.interpolate(x, size=(l3.shape[-2], l3.shape[-1]), mode='bilinear') # shape: [b, 2048, h, w], e.g. h=w=14
-        x = torch.cat((x, l3), dim=1)
+        features = self.backbone(x)
+        l3, l4 = features['l3'], features['l4']
+        b, c, h, w = l3.shape
+
+        x = F.interpolate(l4, size=(h, w), mode='bilinear') # shape: [b, 2048, h, w], e.g. h=w=14
+        x = torch.cat([x, l3], dim=1)
 
         # Compute per landmark attention maps
         # (b - a)^2 = b^2 - 2ab + a^2, b = feature maps resnet, a = convolution kernel
-        batch_size = x.shape[0]
         ab = self.fc_landmarks(x)
         b_sq = x.pow(2).sum(1, keepdim=True)
         b_sq = b_sq.expand(-1, self.num_landmarks + 1, -1, -1)
-        a_sq = self.fc_landmarks.weight.pow(2).sum(1).unsqueeze(1).expand(-1, batch_size, x.shape[-2], x.shape[-1])
+        a_sq = self.fc_landmarks.weight.pow(2).sum(1).unsqueeze(1).expand(-1, b, h, w)
         a_sq = a_sq.permute(1, 0, 2, 3)
         maps = b_sq - 2 * ab + a_sq
         maps = -maps
