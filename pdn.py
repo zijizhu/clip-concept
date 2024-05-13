@@ -9,7 +9,8 @@ from torchvision.models.feature_extraction import create_feature_extractor
 
 class PDN(torch.nn.Module):
     def __init__(self, backbone: ResNet, num_landmarks: int = 8,
-                 num_classes: int = 2000, landmark_dropout: float = 0.3) -> None:
+                 num_classes: int = 200, num_attrs: int = 312,
+                 landmark_dropout: float = 0.3) -> None:
         super().__init__()
         self.dim = backbone.layer4[0].conv1.in_channels + backbone.fc.in_features
         return_nodes = {
@@ -22,10 +23,12 @@ class PDN(torch.nn.Module):
         # New part of the model
         self.softmax = torch.nn.Softmax2d()
         self.fc_landmarks = torch.nn.Conv2d(1024 + 2048, num_landmarks + 1, 1, bias=False)
-        self.fc_class_landmarks = torch.nn.Linear(1024 + 2048, num_classes, bias=False)
         self.modulation = torch.nn.Parameter(torch.ones((1,1024 + 2048,num_landmarks + 1)))
         self.dropout = torch.nn.Dropout(landmark_dropout)
         self.dropout_full_landmarks = torch.nn.Dropout1d(landmark_dropout)
+
+        self.fc_attrs = torch.nn.Linear(1024 + 2048, num_attrs)
+        self.fc_classes = torch.nn.Linear(num_attrs, num_classes, bias=False)
     
     def forward(self, x: torch.Tensor):
         # Pretrained ResNet part of the model
@@ -51,11 +54,17 @@ class PDN(torch.nn.Module):
 
         # Classification based on the landmarks
         all_features_modulated = all_features * self.modulation
-        all_features_modulated = self.dropout_full_landmarks(all_features_modulated.permute(0,2,1)).permute(0,2,1)
-        scores = self.fc_class_landmarks(all_features_modulated.permute(0, 2, 1)).permute(0, 2, 1)
+        # all_features_modulated = self.dropout_full_landmarks(all_features_modulated.permute(0, 2, 1)).permute(0, 2, 1)
+        # scores = self.fc_class_landmarks(all_features_modulated.permute(0, 2, 1)).permute(0, 2, 1)
+
+        all_features_modulated = self.dropout_full_landmarks(all_features_modulated.permute(0, 2, 1))  # shape: [b,k,c]
+        mean_features = torch.mean(all_features_modulated[:, :-1, :], dim=1)
+        attr_scores = self.fc_attrs(mean_features)
+        class_scores = self.fc_classes(attr_scores)
 
         return {
-            'class_scores': scores[:, :, 0:-1].mean(-1),
+            'attr_scores': attr_scores,
+            'class_scores': class_scores,
             'attn_maps': maps,
             'part_features': all_features
         }
@@ -129,18 +138,22 @@ class PDNLoss(nn.Module):
         super().__init__()
         self.loss_coef_dict = {k.lower(): v for k, v in loss_coef_dict.items()}
         self.l_cls = nn.CrossEntropyLoss()
+        self.l_attr = nn.KLDivLoss()
         self.num_parts = num_parts
     
     def forward(self, model_outputs: dict[str, torch.Tensor], batch_inputs: dict[str, torch.Tensor], net: nn.Module):
-        preds, attn_maps, part_features = (
+        preds, attn_maps, part_features, attr_preds = (
             model_outputs['class_scores'],
             model_outputs['attn_maps'],
-            model_outputs['part_features']
+            model_outputs['part_features'],
+            model_outputs['attr_scores']
         )
         images, labels = batch_inputs['pixel_values'], batch_inputs['class_ids']
+        attr_scores = batch_inputs['attr_scores']
         device = labels.device
         loss_dict = {
             'l_cls': self.loss_coef_dict['l_cls'] * self.l_cls(preds, labels),
+            'l_attr': self.loss_coef_dict['l_attr'] * self.l_attr(attr_preds, attr_scores),
             'l_conc': self.loss_coef_dict['l_conc'] * l_concentration(attn_maps),
             'l_pres': self.loss_coef_dict['l_pres'] * l_presence(attn_maps),
             'l_orth': self.loss_coef_dict['l_orth'] * l_orthogonality(self.num_parts, part_features),

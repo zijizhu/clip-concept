@@ -7,6 +7,7 @@ MODEL:
   NUM_PARTS: 4
   LOSSES:
     L_CLS: 1
+    L_ATTR: 1
     L_CONC: 1000
     L_PRES: 1
     L_ORTH: 1
