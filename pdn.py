@@ -138,7 +138,7 @@ class PDNLoss(nn.Module):
         super().__init__()
         self.loss_coef_dict = {k.lower(): v for k, v in loss_coef_dict.items()}
         self.l_cls = nn.CrossEntropyLoss()
-        self.l_attr = nn.KLDivLoss()
+        self.l_attr = nn.MSELoss()
         self.num_parts = num_parts
     
     def forward(self, model_outputs: dict[str, torch.Tensor], batch_inputs: dict[str, torch.Tensor], net: nn.Module):
