@@ -189,7 +189,7 @@ def load_pdn(loss_coef_dict: dict[str, float], lr: float, num_parts: int = 8):
     pdn_loss = PDNLoss(loss_coef_dict, num_parts)
 
     high_lr_layers = ["modulation"]
-    med_lr_layers = ["fc_class_landmarks"]
+    med_lr_layers = ["fc_classes", "fc_attrs"]
 
     param_dict = [{'params': [], 'lr': lr * 100},
                   {'params': [], 'lr': lr * 10},
@@ -204,5 +204,5 @@ def load_pdn(loss_coef_dict: dict[str, float], lr: float, num_parts: int = 8):
             param_dict[2]['params'].append(p)
     optimizer = torch.optim.Adam(params=param_dict)
 
-    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 5, 0.5)
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 10, 0.5)
     return pdn_net, pdn_loss, optimizer, scheduler
