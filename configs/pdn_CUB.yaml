@@ -19,7 +19,7 @@ DATASET:
   ROOT_DIR: "datasets"
 OPTIM:
   LR: 1e-4
-  EPOCHS: 45
+  EPOCHS: 60
   BATCH_SIZE: 16
   STEP_SIZE: 15
   GAMMA: 0.5
