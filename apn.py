@@ -4,6 +4,7 @@ from torch import nn
 from torch import optim
 import torch.nn.functional as f
 from torch.optim import lr_scheduler
+from torchvision.models import resnet101, ResNet101_Weights
 
 
 ########################################
@@ -139,8 +140,8 @@ class BackBone(nn.Module):
         super().__init__()
         assert name in ['resnet101', 'ViT-L/16']
         # if name == 'resnet101':
-        # self.backbone = resnet101(weights=ResNet101_Weights.DEFAULT)
-        self.backbone = timm.create_model(name, pretrained=True)
+        self.backbone = resnet101(weights=ResNet101_Weights.DEFAULT)
+        # self.backbone = timm.create_model(name, pretrained=True)
         self.backbone.fc = nn.Linear(self.backbone.fc.in_features, num_classes)
 
     def forward(self, batch_inputs: dict[str, torch.Tensor]):
