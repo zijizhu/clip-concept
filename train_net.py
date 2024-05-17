@@ -122,7 +122,7 @@ def main():
     ###########################
 
     if cfg.DATASET.NAME == 'CUB':
-        num_attrs = cfg.get('DATASET.NUM_ATTRS', None)
+        num_attrs = cfg.get('DATASET.NUM_ATTRS', 312)
         train_transforms, test_transforms = get_cub_transforms(resolution=cfg.MODEL.IMAGE_SIZE)
         dataset_train = CUBDataset(
             os.path.join(cfg.DATASET.ROOT_DIR, 'CUB'),
