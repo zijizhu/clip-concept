@@ -2,7 +2,7 @@ import timm
 import torch
 from torch import nn
 from torch import optim
-import torch.nn.functional as f
+import torch.nn.functional as F
 from torch.optim import lr_scheduler
 from torchvision.models import resnet101, ResNet101_Weights
 
@@ -26,6 +26,7 @@ class APN(nn.Module):
         self.register_buffer('fc_buffer', class_attr_embs)
         # self.final_fc = nn.Linear(self.k, num_classes)
 
+
         self.backbone.load_state_dict(backbone_weights)
 
         assert dist in ['dot', 'l2']
@@ -38,7 +39,7 @@ class APN(nn.Module):
         b, c, h, w = features.shape
 
         if self.dist == 'dot':
-            attn_maps = f.conv2d(features, self.prototypes[..., None, None])  # shape: [b,k,h,w]
+            attn_maps = F.conv2d(features, self.prototypes[..., None, None])  # shape: [b,k,h,w]
         elif self.dist == 'l2':
             features = features.view(b, c, h*w).permute(0, 2, 1)  # shape: [b,h*w,c]
             prototypes_batch = self.prototypes.unsqueeze(0).expand(b, -1, -1)  # shape: [b,k,c]
@@ -46,7 +47,7 @@ class APN(nn.Module):
         else:
             raise NotImplementedError
 
-        max_attn_scores = f.max_pool2d(attn_maps, kernel_size=(h, w))  # shape: [b,k,1,1]
+        max_attn_scores = F.max_pool2d(attn_maps, kernel_size=(h, w))  # shape: [b,k,1,1]
         attr_scores = max_attn_scores.squeeze()  # shape: [b, k]
 
         # class_scores = self.final_fc(attr_scores)
@@ -84,11 +85,11 @@ class APNLoss(nn.Module):
         grid_w, grid_h = grid_w.to(device), grid_h.to(device)
 
         # Compute coordinates of max attention scores
-        max_attn_scores = f.max_pool2d(attn_maps, kernel_size=(h, w))  # shape: [b,k,1,1]
+        max_attn_scores = F.max_pool2d(attn_maps, kernel_size=(h, w))  # shape: [b,k,1,1]
         max_attn_coords = torch.nonzero(attn_maps == max_attn_scores)  # shape: [b*k, 4]
         max_attn_coords = max_attn_coords[..., 2:]  # shape: [b*k,2]
 
-        attn_maps = f.sigmoid(attn_maps.reshape(b*k, h, w))  # range: [0,1]
+        attn_maps = F.sigmoid(attn_maps.reshape(b*k, h, w))  # range: [0,1]
 
         all_losses = []
         for m, coords in zip(attn_maps, max_attn_coords):
@@ -139,9 +140,10 @@ class BackBone(nn.Module):
     def __init__(self, name: str, num_classes: int):
         super().__init__()
         assert name in ['resnet101', 'ViT-L/16']
-        # if name == 'resnet101':
-        # self.backbone = resnet101(weights=ResNet101_Weights.DEFAULT)
-        self.backbone = timm.create_model(name, pretrained=True)
+        if name == 'resnet101':
+            self.backbone = resnet101(weights=ResNet101_Weights.DEFAULT)
+        else:
+            raise NotImplementedError
         self.backbone.fc = nn.Linear(self.backbone.fc.in_features, num_classes)
 
     def forward(self, batch_inputs: dict[str, torch.Tensor]):
