@@ -122,15 +122,31 @@ def main():
     ###########################
 
     if cfg.DATASET.NAME == 'CUB':
+        num_attrs = cfg.get('DATASET.NUM_ATTRS', None)
         train_transforms, test_transforms = get_cub_transforms(resolution=cfg.MODEL.IMAGE_SIZE)
-        dataset_train = CUBDataset(os.path.join(cfg.DATASET.ROOT_DIR, 'CUB'), num_attrs=cfg.DATASET.NUM_ATTRS,
-                                   split='train', transforms=train_transforms)
-        dataset_val = CUBDataset(os.path.join(cfg.DATASET.ROOT_DIR, 'CUB'), num_attrs=cfg.DATASET.NUM_ATTRS,
-                                 split='val', transforms=test_transforms)
-        dataloader_train = DataLoader(dataset=dataset_train, batch_size=cfg.OPTIM.BATCH_SIZE,
-                                      shuffle=True, num_workers=8)
-        dataloader_val = DataLoader(dataset=dataset_val, batch_size=cfg.OPTIM.BATCH_SIZE,
-                                    shuffle=True, num_workers=8)
+        dataset_train = CUBDataset(
+            os.path.join(cfg.DATASET.ROOT_DIR, 'CUB'),
+            num_attrs=num_attrs,
+            split='train',
+            transforms=train_transforms
+        )
+        dataset_val = CUBDataset(
+            os.path.join(cfg.DATASET.ROOT_DIR, 'CUB'),
+            num_attrs=num_attrs,
+            split='val',
+            transforms=test_transforms
+        )
+        dataloader_train = DataLoader(
+            dataset=dataset_train,
+            batch_size=cfg.OPTIM.BATCH_SIZE,
+            shuffle=True, num_workers=8
+        )
+        dataloader_val = DataLoader(
+            dataset=dataset_val,
+            batch_size=cfg.OPTIM.BATCH_SIZE,
+            shuffle=True,
+            num_workers=8
+        )
     elif cfg.DATASET.NAME == 'CARS':
         raise NotImplementedError
     else:

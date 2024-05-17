@@ -17,7 +17,7 @@ from .constants import (
 
 class CUBDataset(Dataset):
     def __init__(
-        self, dataset_dir: str, num_attrs: int, split="train", transforms=None
+        self, dataset_dir: str, num_attrs: int = 312, split="train", transforms=None
     ) -> None:
         super().__init__()
         self.split = split
