@@ -1,10 +1,10 @@
-import timm
 import torch
 from torch import nn
 from torch import optim
 import torch.nn.functional as F
 from torch.optim import lr_scheduler
-from torchvision.models import resnet101, ResNet101_Weights
+from torchvision.models import resnet101, ResNet101_Weights, ResNet
+from torchvision.models.feature_extraction import create_feature_extractor
 
 
 ########################################
@@ -12,37 +12,42 @@ from torchvision.models import resnet101, ResNet101_Weights
 ########################################
 
 class APN(nn.Module):
-    def __init__(self, num_classes: int, num_attrs: int, backbone_name: str, class_attr_embs: torch.Tensor,
-                 backbone_weights: dict[str, torch.Tensor], dist: str = 'dot') -> None:
+    def __init__(
+            self,
+            backbone: nn.Module,
+            class_embeddings: torch.Tensor,
+            dist: str = 'dot'
+        ) -> None:
         super().__init__()
-        self.k = num_attrs
-        self.backbone = timm.create_model(backbone_name,
-                                          pretrained=True,
-                                          zero_init_last=False)
-        self.backbone.fc = nn.Linear(self.backbone.fc.in_features, num_classes)
-        self.dim = self.backbone.fc.weight.shape[-1]
+        if isinstance(backbone, ResNet):
+            self.backbone = create_feature_extractor(
+                backbone,
+                {'layer4.2.relu_2': 'features'}
+            )
+            self.avg_pool = nn.AdaptiveAvgPool2d(output_size=(1, 1))
+            self.dim = backbone.fc.in_features
+        else:
+            raise NotImplementedError
+        self.num_classes, self.num_attrs = class_embeddings.shape
 
-        self.prototypes = nn.Parameter(torch.randn(self.k, self.dim))
-        self.register_buffer('fc_buffer', class_attr_embs)
-        # self.final_fc = nn.Linear(self.k, num_classes)
-
-
-        self.backbone.load_state_dict(backbone_weights)
+        self.register_buffer('class_embeddings', class_embeddings)
+        self.attr_prototypes = nn.Parameter(torch.randn(self.num_attrs, self.dim))
+        self.feat_attr_proj = nn.Linear(self.dim, self.num_attrs)
 
         assert dist in ['dot', 'l2']
         self.dist = dist
-    
-    def forward(self, batch_inputs):
+
+    def forward(self, batch_inputs: dict[str, torch.Tensor]):
         x = batch_inputs['pixel_values']
 
-        features = self.backbone.forward_features(x)
+        features = self.backbone(x)['features']  # type: torch.Tensor
         b, c, h, w = features.shape
 
         if self.dist == 'dot':
-            attn_maps = F.conv2d(features, self.prototypes[..., None, None])  # shape: [b,k,h,w]
+            attn_maps = F.conv2d(features, self.attr_prototypes[..., None, None])  # shape: [b,k,h,w]
         elif self.dist == 'l2':
             features = features.view(b, c, h*w).permute(0, 2, 1)  # shape: [b,h*w,c]
-            prototypes_batch = self.prototypes.unsqueeze(0).expand(b, -1, -1)  # shape: [b,k,c]
+            prototypes_batch = self.attr_prototypes.unsqueeze(0).expand(b, -1, -1)  # shape: [b,k,c]
             attn_maps = 1 / torch.cdist(features, prototypes_batch, p=2).reshape(b, self.k, h, w)  # shape: [b,k,h,w]
         else:
             raise NotImplementedError
@@ -50,10 +55,11 @@ class APN(nn.Module):
         max_attn_scores = F.max_pool2d(attn_maps, kernel_size=(h, w))  # shape: [b,k,1,1]
         attr_scores = max_attn_scores.squeeze()  # shape: [b, k]
 
-        # class_scores = self.final_fc(attr_scores)
-        class_scores = attr_scores @ self.fc_buffer.T
+        features_pooled = self.avg_pool(features).squeeze()
+        class_embs_pred = self.feat_attr_proj(features_pooled)
+        class_scores = class_embs_pred @ self.class_embeddings.T
 
-        # shape: [b,k], [b,k], [b,k,h,w]
+        # shape: [b,num_classes], [b,k], [b,k,h,w]
         return {
             'class_scores': class_scores,
             'attr_scores': attr_scores,
@@ -86,14 +92,14 @@ class APNLoss(nn.Module):
 
         # Compute coordinates of max attention scores
         max_attn_scores = F.max_pool2d(attn_maps, kernel_size=(h, w))  # shape: [b,k,1,1]
-        max_attn_coords = torch.nonzero(attn_maps == max_attn_scores)  # shape: [b*k, 4]
+        max_attn_coords = torch.nonzero(attn_maps == max_attn_scores)  # shape: [b*k,4]
         max_attn_coords = max_attn_coords[..., 2:]  # shape: [b*k,2]
 
         attn_maps = F.sigmoid(attn_maps.reshape(b*k, h, w))  # range: [0,1]
 
         all_losses = []
         for m, coords in zip(attn_maps, max_attn_coords):
-            # Expand coords of max attention scores for each attn_map m to shape [2, h, w] and unbind
+            # Expand coords of max attention scores for each attn_map m to shape [2,h,w] and unbind
             grid_ch, grid_cw = coords[..., None, None].expand(-1, h, w).unbind(dim=0)
             # High punishment if coords at away from center of attention still have high attention scores
             m_losses = m * ((grid_h - grid_ch) ** 2 + (grid_w - grid_cw) ** 2)
@@ -112,22 +118,29 @@ class APNLoss(nn.Module):
 
 
 def load_apn(
-        num_classes: int,
-        num_attrs: int,
-        dist: str, lr: float,
-        class_attr_embs: torch.Tensor,
         backbone_name: str,
-        backbone_weight_path: str,
+        backbone_weights_path: str,
+        class_embeddings: torch.Tensor,
         loss_coef_dict: dict[str, float],
+        dist: str,
+        lr: float,
+        betas: tuple[float, float],
         step_size: int,
         gamma: float
     ) -> tuple[nn.Module, nn.Module, optim.Optimizer, lr_scheduler.LRScheduler]:
-    backbone_weights = torch.load(backbone_weight_path, map_location='cpu')
-    apn_net = APN(num_classes=num_classes, num_attrs=num_attrs, class_attr_embs=class_attr_embs,
-                  backbone_name=backbone_name, backbone_weights=backbone_weights, dist=dist)
+    if backbone_name == 'resnet101':
+        num_classes, num_attrs = class_embeddings.shape
+        backbone = resnet101(weights=ResNet101_Weights.DEFAULT)
+        backbone.fc = nn.Linear(backbone.fc.in_features, num_classes)
+    else:
+        raise NotImplementedError
+    backbone_weights = torch.load(backbone_weights_path, map_location='cpu')
+    backbone.load_state_dict(backbone_weights)
+    apn_net = APN(backbone, class_embeddings, dist=dist)
     apn_loss = APNLoss(loss_coef_dict)
 
-    optimizer = optim.AdamW(apn_net.parameters(), lr=lr)
+    optimizer = optim.AdamW(apn_net.parameters(), lr=lr, betas=betas)
+    optimizer = optim.SGD(apn_net.parameters(), lr=lr, momentum=0.9, weight_decay=1e-5)
     scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=step_size, gamma=gamma)
     return apn_net, apn_loss, optimizer, scheduler
 

@@ -13,7 +13,7 @@ from lightning import seed_everything
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard.writer import SummaryWriter
 
-from data.cub.cub_dataset import CUBDataset, get_cub_transforms
+from data.cub.cub_dataset import CUBDataset, get_transforms
 from apn import load_backbone_for_ft, load_apn, compute_corrects
 
 
@@ -123,7 +123,7 @@ def main():
 
     if cfg.DATASET.NAME == 'CUB':
         num_attrs = cfg.get('DATASET.NUM_ATTRS', 312)
-        train_transforms, test_transforms = get_cub_transforms(resolution=cfg.MODEL.IMAGE_SIZE)
+        train_transforms, test_transforms = get_transforms(resolution=cfg.MODEL.IMAGE_SIZE)
         dataset_train = CUBDataset(
             os.path.join(cfg.DATASET.ROOT_DIR, 'CUB'),
             num_attrs=num_attrs,
@@ -139,7 +139,8 @@ def main():
         dataloader_train = DataLoader(
             dataset=dataset_train,
             batch_size=cfg.OPTIM.BATCH_SIZE,
-            shuffle=True, num_workers=8
+            shuffle=True,
+            num_workers=8
         )
         dataloader_val = DataLoader(
             dataset=dataset_val,
@@ -153,25 +154,30 @@ def main():
         raise NotImplementedError
 
     if 'ft' in experiment_name:
-        net, loss_fn, optimizer, scheduler = load_backbone_for_ft(name=cfg.MODEL.NAME,
-                                                                  num_classes=cfg.DATASET.NUM_CLASSES,
-                                                                  lr=cfg.OPTIM.LR,
-                                                                  step_size=cfg.OPTIM.STEP_SIZE,
-                                                                  gamma=cfg.OPTIM.GAMMA)
-        losses = ['l_total']  # Only need cross entropy for fine-tuning backbone
-    else:
-        class_attr_embs = dataset_train.class_attr_embs
-        net, loss_fn, optimizer, scheduler = load_apn(num_classes=cfg.DATASET.NUM_CLASSES,
-                                                      num_attrs=cfg.DATASET.NUM_ATTRS,
-                                                      dist=cfg.MODEL.DIST,
-                                                      class_attr_embs=class_attr_embs,
-                                                      backbone_name=cfg.MODEL.BACKBONE.NAME,
-                                                      backbone_weight_path=cfg.MODEL.BACKBONE.CKPT_PATH,
-                                                      loss_coef_dict=dict(cfg.MODEL.LOSSES),
-                                                      lr=cfg.OPTIM.LR,
-                                                      step_size=cfg.OPTIM.STEP_SIZE,
-                                                      gamma=cfg.OPTIM.GAMMA)
+        net, loss_fn, optimizer, scheduler = load_backbone_for_ft(
+            name=cfg.MODEL.NAME,
+            num_classes=cfg.DATASET.NUM_CLASSES,
+            lr=cfg.OPTIM.LR,
+            step_size=cfg.OPTIM.STEP_SIZE,
+            gamma=cfg.OPTIM.GAMMA
+        )
+        losses = ['l_total']
+    elif 'apn' in experiment_name:
+        class_embeddings = dataset_train.attribute_vectors_pt
+        net, loss_fn, optimizer, scheduler = load_apn(
+            backbone_name=cfg.MODEL.BACKBONE.NAME,
+            backbone_weights_path=cfg.MODEL.BACKBONE.CKPT_PATH,
+            class_embeddings=class_embeddings,
+            loss_coef_dict=dict(cfg.MODEL.LOSSES),
+            dist=cfg.MODEL.DIST,
+            lr=cfg.OPTIM.LR,
+            betas=(cfg.OPTIM.BETA1, cfg.OPTIM.BETA2),
+            step_size=cfg.OPTIM.STEP_SIZE,
+            gamma=cfg.OPTIM.GAMMA
+        )
         losses = list(name.lower() for name in cfg.MODEL.LOSSES.keys()) + ['l_total']
+    else:
+        raise NotImplementedError
 
     #################
     # Training loop #

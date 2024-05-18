@@ -15,9 +15,12 @@ DATASET:
   NUM_ATTRS: 312
   ROOT_DIR: "datasets"
 OPTIM:
-  LR: 1e-4
-  EPOCHS: 60
-  BATCH_SIZE: 32
-  STEP_SIZE: 30
+  LR: 1e-4  # official implementation uses 1e-3
+  EPOCHS: 30
+  BATCH_SIZE: 16  # official implementation uses 64
+  STEP_SIZE: 10
+  BETA1: 0.5
+  BETA2: 0.999
   GAMMA: 0.5
 SEED: 42
+
