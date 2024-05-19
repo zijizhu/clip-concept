@@ -16,9 +16,9 @@ DATASET:
   TRANSFORMS: 'resnet101'
   ROOT_DIR: "datasets"
 OPTIM:
-  LR: 1e-4  # official implementation uses 1e-3
+  LR: 1e-3  # official implementation uses 1e-3
   EPOCHS: 30
-  BATCH_SIZE: 16  # official implementation uses 64
+  BATCH_SIZE: 64  # official implementation uses 64
   STEP_SIZE: 10
   BETA1: 0.5
   BETA2: 0.999
