@@ -24,7 +24,6 @@ class APN(nn.Module):
                 backbone,
                 {'layer4.2.relu_2': 'features'}
             )
-            self.avg_pool = nn.AdaptiveAvgPool2d(output_size=(1, 1))
             self.dim = backbone.fc.in_features
         else:
             raise NotImplementedError
@@ -55,9 +54,7 @@ class APN(nn.Module):
         max_attn_scores = F.max_pool2d(attn_maps, kernel_size=(h, w))  # shape: [b,k,1,1]
         attr_scores = max_attn_scores.squeeze()  # shape: [b, k]
 
-        features_pooled = self.avg_pool(features).squeeze()
-        class_embs_pred = self.feat_attr_proj(features_pooled)
-        class_scores = class_embs_pred @ self.class_embeddings.T
+        class_scores = attr_scores @ self.class_embeddings.T
 
         # shape: [b,num_classes], [b,k], [b,k,h,w]
         return {
