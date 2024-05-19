@@ -13,7 +13,11 @@ from lightning import seed_everything
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard.writer import SummaryWriter
 
-from data.cub.cub_dataset import CUBDataset, get_transforms
+from data.cub.cub_dataset import (
+    CUBDataset,
+    get_transforms_resnet101,
+    get_transforms_part_discovery
+)
 from apn import load_backbone_for_ft, load_apn, compute_corrects
 
 
@@ -117,13 +121,19 @@ def main():
                         ])
     logger = logging.getLogger(__name__)
 
-    ###########################
-    # Setup dataset and model #
-    ###########################
+    #################################
+    # Setup datasets and transforms #
+    #################################
 
     if cfg.DATASET.NAME == 'CUB':
+        if cfg.MODEL.TRANSFORMS == 'resnet101':
+            train_transforms, test_transforms = get_transforms_resnet101()
+        elif cfg.MODEL.TRANSFORMS == 'pasrt_discovery':
+            train_transforms, test_transforms = get_transforms_part_discovery()
+        else:
+            raise NotImplementedError
+
         num_attrs = cfg.get('DATASET.NUM_ATTRS', 312)
-        train_transforms, test_transforms = get_transforms(resolution=cfg.MODEL.IMAGE_SIZE)
         dataset_train = CUBDataset(
             os.path.join(cfg.DATASET.ROOT_DIR, 'CUB'),
             num_attrs=num_attrs,
@@ -152,6 +162,10 @@ def main():
         raise NotImplementedError
     else:
         raise NotImplementedError
+
+    ##############################
+    # Load models and optimizers #
+    ##############################
 
     if 'ft' in experiment_name:
         net, loss_fn, optimizer, scheduler = load_backbone_for_ft(

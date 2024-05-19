@@ -1,10 +1,11 @@
 MODEL:
   NAME: 'resnet101'
-  IMAGE_SIZE: 448
+  IMAGE_SIZE: 224
 DATASET:
   NAME: "CUB"
   NUM_CLASSES: 200
   ROOT_DIR: "datasets"
+  TRANSFORMS: "resnet101"
 OPTIM:
   LR: 1e-4
   EPOCHS: 20

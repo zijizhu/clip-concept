@@ -154,24 +154,40 @@ class CUBDataset(Dataset):
         }
 
 
-def get_transforms(resolution: int = 448):
-    '''A set of transforms from '''
-    train_transforms = t.Compose(
-        [
+def get_transforms_part_discovery(resolution: int = 448):
+    '''A set of transforms used in https://github.com/robertdvdk/part_detection'''
+    train_transforms = t.Compose([
             t.Resize(size=resolution, antialias=True),
             t.RandomHorizontalFlip(),
             t.ColorJitter(0.1),
             t.RandomAffine(degrees=90, translate=(0.2, 0.2), scale=(0.8, 1.2)),
             t.RandomCrop(resolution),
             t.ToTensor(),
-        ]
-    )
-    test_transforms = t.Compose(
-        [
+    ])
+    test_transforms = t.Compose([
             t.Resize(size=resolution, antialias=True),
             t.CenterCrop(size=resolution),
             t.ToTensor(),
-        ]
-    )
+    ])
+
+    return train_transforms, test_transforms
+
+
+def get_transforms_resnet101():
+    '''A set of transforms for standard resnet101 training from torchvision, reference:
+    https://pytorch.org/vision/main/models/generated/torchvision.models.resnet101.html'''
+    train_transforms = t.Compose([
+        t.Resize(size=232, interpolation=t.InterpolationMode.BILINEAR),
+        t.CenterCrop(size=224),
+        t.ToTensor(),
+        t.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    ])
+
+    test_transforms = t.Compose([
+        t.Resize(size=232, interpolation=t.InterpolationMode.BILINEAR),
+        t.CenterCrop(size=224),
+        t.ToTensor(),
+        t.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    ])
 
     return train_transforms, test_transforms

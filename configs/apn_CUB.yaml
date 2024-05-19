@@ -7,7 +7,7 @@ MODEL:
   IMAGE_SIZE: 448
   LOSSES:
     L_CLS: 1
-    L_REG: 0.1
+    L_REG: 0.01
     L_CPT: 0.2
 DATASET:
   NAME: "CUB"
