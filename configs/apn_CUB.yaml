@@ -4,7 +4,7 @@ MODEL:
   BACKBONE:
     NAME: 'resnet101'
     CKPT_PATH: 'checkpoints/resnet101_ft_CUB.pt'
-  IMAGE_SIZE: 448
+  IMAGE_SIZE: 224
   LOSSES:
     L_CLS: 1
     L_REG: 0.01
@@ -13,6 +13,7 @@ DATASET:
   NAME: "CUB"
   NUM_CLASSES: 200
   NUM_ATTRS: 312
+  TRANSFORMS: 'resnet101'
   ROOT_DIR: "datasets"
 OPTIM:
   LR: 1e-4  # official implementation uses 1e-3
