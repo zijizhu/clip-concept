@@ -126,9 +126,9 @@ def main():
     #################################
 
     if cfg.DATASET.NAME == 'CUB':
-        if cfg.MODEL.TRANSFORMS == 'resnet101':
+        if cfg.DATASET.TRANSFORMS == 'resnet101':
             train_transforms, test_transforms = get_transforms_resnet101()
-        elif cfg.MODEL.TRANSFORMS == 'pasrt_discovery':
+        elif cfg.DATASET.TRANSFORMS == 'pasrt_discovery':
             train_transforms, test_transforms = get_transforms_part_discovery()
         else:
             raise NotImplementedError
