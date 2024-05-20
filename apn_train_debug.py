@@ -30,6 +30,7 @@ def val_epoch(model: nn.Module, attribute_seen, acc_fn: nn.Module | Callable, da
 
     for batch in tqdm(dataloader):
         batch_input, batch_target = batch['pixel_values'], batch['class_ids']
+        batch_target.to(device)
         model.zero_grad()
         # map target labels
         input_v = torch.autograd.Variable(batch_input)
