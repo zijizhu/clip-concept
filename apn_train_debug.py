@@ -16,18 +16,26 @@ from data.cub.cub_dataset import (
     get_transforms_resnet101
 )
 from apn_debug import resnet_proto_IoU, Loss_fn, get_middle_graph
+from apn import compute_corrects
+
 
 @torch.no_grad()
-def val_epoch(model: nn.Module, acc_fn: nn.Module | Callable, dataloader: DataLoader, writer: SummaryWriter,
+def val_epoch(model: nn.Module, attribute_seen, acc_fn: nn.Module | Callable, dataloader: DataLoader, writer: SummaryWriter,
               dataset_size: int, epoch: int, batch_size: int, device: torch.device, logger: logging.Logger):
 
     running_corrects = 0
 
-    for batch_inputs in tqdm(dataloader):
-        batch_inputs = {k: v.to(device) for k, v in batch_inputs.items()}
-        outputs = model(batch_inputs)
+    for batch in tqdm(dataloader):
+        batch_input, batch_target = batch['pixel_values'], batch['class_ids']
+        model.zero_grad()
+        # map target labels
+        input_v = torch.autograd.Variable(batch_input)
+        label_v = torch.autograd.Variable(batch_target)
+        input_v = input_v.to(device)
+        label_v = label_v.to(device)
+        output, pre_attri, attention, pre_class = model(input_v, attribute_seen)
 
-        running_corrects += acc_fn(outputs, batch_inputs)
+        running_corrects += acc_fn(output, batch_target)
 
     epoch_acc = running_corrects / dataset_size
     writer.add_scalar('Acc/val', epoch_acc, epoch)
@@ -119,24 +127,24 @@ def main():
         split='train',
         transforms=train_transforms
     )
-    # dataset_val = CUBDataset(
-    #     os.path.join('datasets', 'CUB'),
-    #     num_attrs=312,
-    #     split='val',
-    #     transforms=test_transforms
-    # )
+    dataset_val = CUBDataset(
+        os.path.join('datasets', 'CUB'),
+        num_attrs=312,
+        split='val',
+        transforms=test_transforms
+    )
     dataloader_train = DataLoader(
         dataset=dataset_train,
         batch_size=opt.batch_size,
         shuffle=True,
         num_workers=8
     )
-    # dataloader_val = DataLoader(
-    #     dataset=dataset_val,
-    #     batch_size=opt.batch_size,
-    #     shuffle=True,
-    #     num_workers=8
-    # )
+    dataloader_val = DataLoader(
+        dataset=dataset_val,
+        batch_size=opt.batch_size,
+        shuffle=True,
+        num_workers=8
+    )
 
     ##############################
     # Load models and optimizers #
@@ -200,9 +208,9 @@ def main():
         # print('\nLoss log: {}'.format({key: loss_log[key] / batch for key in loss_log}))
         print('\n[Epoch %d, Batch %5d] Train loss: %.3f '
                 % (epoch+1, num_batches, loss_log['ave_loss'] / num_batches))
-        # val_epoch(model=net, acc_fn=compute_corrects, dataloader=dataloader_val, writer=summary_writer,
-        #           dataset_size=len(dataset_val), batch_size=cfg.OPTIM.BATCH_SIZE,
-        #           device=device, epoch=epoch, logger=logger)
+        val_epoch(model=model, attribute_seen=attribute_seen, acc_fn=compute_corrects, dataloader=dataloader_val,
+                  dataset_size=len(dataset_val), batch_size=opt.batch_size,
+                  device=device, epoch=epoch, logger=logger)
 
     logger.info('DONE!')
 
