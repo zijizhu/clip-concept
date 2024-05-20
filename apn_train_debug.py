@@ -179,7 +179,7 @@ def main():
         loss_log = {'ave_loss': 0, 'l_xe_final': 0, 'l_attri_final': 0, 'l_regular_final': 0,
                     'l_xe_layer': 0, 'l_attri_layer': 0, 'l_regular_layer': 0, 'l_cpt': 0}
 
-        batch = len(dataloader_train)
+        num_batches = len(dataloader_train)
         for batch in tqdm(dataloader_train):
             batch_input, batch_target = batch['pixel_values'], batch['class_ids']
             model.zero_grad()
@@ -199,7 +199,7 @@ def main():
             optimizer.step()
         # print('\nLoss log: {}'.format({key: loss_log[key] / batch for key in loss_log}))
         print('\n[Epoch %d, Batch %5d] Train loss: %.3f '
-                % (epoch+1, batch, loss_log['ave_loss'] / batch))
+                % (epoch+1, num_batches, loss_log['ave_loss'] / num_batches))
         # val_epoch(model=net, acc_fn=compute_corrects, dataloader=dataloader_val, writer=summary_writer,
         #           dataset_size=len(dataset_val), batch_size=cfg.OPTIM.BATCH_SIZE,
         #           device=device, epoch=epoch, logger=logger)
