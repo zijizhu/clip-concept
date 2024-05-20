@@ -30,9 +30,13 @@ def val_epoch(model: nn.Module, attribute_seen, acc_fn: nn.Module | Callable, da
 
     for batch in tqdm(dataloader):
         batch_input, batch_target = batch['pixel_values'], batch['class_ids']
+        batch_target = batch_target.to(device)
+        model.zero_grad()
         # map target labels
-        input_v = batch_input.to(device)
-        label_v = batch_target.to(device)
+        input_v = torch.autograd.Variable(batch_input)
+        label_v = torch.autograd.Variable(batch_target)
+        input_v = input_v.to(device)
+        label_v = label_v.to(device)
         output, pre_attri, attention, pre_class = model(input_v, attribute_seen)
 
         running_corrects += acc_fn(output, label_v)
@@ -194,8 +198,10 @@ def main():
             batch_input, batch_target = batch['pixel_values'], batch['class_ids']
             model.zero_grad()
             # map target labels
-            input_v = batch_input.to(device)
-            label_v = batch_target.to(device)
+            input_v = torch.autograd.Variable(batch_input)
+            label_v = torch.autograd.Variable(batch_target)
+            input_v = input_v.to(device)
+            label_v = label_v.to(device)
             output, pre_attri, attention, pre_class = model(input_v, attribute_seen)
             label_a = attribute_seen[:, label_v].t()
 
