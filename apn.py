@@ -36,7 +36,7 @@ class APN(nn.Module):
     def forward(self, batch_inputs: dict[str, torch.Tensor]):
         x = batch_inputs['pixel_values']
 
-        features = self.backbone(x)['features']  # type: torch.Tensor
+        features = self.backbone(x)  # type: torch.Tensor
         b, c, h, w = features.shape
 
         if self.dist == 'dot':
