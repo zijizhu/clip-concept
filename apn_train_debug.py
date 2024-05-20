@@ -166,6 +166,7 @@ def main():
     print('Train and test...')
     for epoch in range(opt.nepoch):
         # print("training")
+        model.to(device)
         model.train()
         current_lr = opt.classifier_lr * (0.8 ** (epoch // 10))
         realtrain = epoch > opt.pretrain_epoch
