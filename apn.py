@@ -72,7 +72,7 @@ class APNLoss(nn.Module):
         loss_dict = {
             'l_cls': self.loss_coef_dict['l_cls'] * self.l_cls(model_outputs['class_scores'], batch_inputs['class_ids']),
             'l_reg': self.loss_coef_dict['l_reg'] * self.l_reg(model_outputs['attr_scores'], batch_inputs['attr_scores']),
-            'l_cpt': self.loss_coef_dict['l_cpt'] * self.l_cpt(model_outputs['attn_maps'])
+            # 'l_cpt': self.loss_coef_dict['l_cpt'] * self.l_cpt(model_outputs['attn_maps'])
         }
         l_total = sum(loss for loss in loss_dict.values())
         loss_dict['l_total'] = l_total
@@ -134,7 +134,6 @@ def load_apn(
     apn_loss = APNLoss(loss_coef_dict)
 
     optimizer = optim.AdamW(apn_net.parameters(), lr=lr, betas=betas)
-    optimizer = optim.SGD(apn_net.parameters(), lr=lr, momentum=0.9, weight_decay=1e-5)
     scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=step_size, gamma=gamma)
     return apn_net, apn_loss, optimizer, scheduler
 
