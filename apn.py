@@ -80,6 +80,7 @@ class APNLoss(nn.Module):
 
     @staticmethod
     def l_cpt(attn_maps: torch.Tensor):
+        # TODO Fix this loss. It prevents the model from learning.
         (b, k, h, w), device = attn_maps.shape, attn_maps.device
         grid_w, grid_h = torch.meshgrid(torch.arange(w), torch.arange(h), indexing='xy')
         grid_w, grid_h = grid_w.to(device), grid_h.to(device)

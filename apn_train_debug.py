@@ -74,7 +74,7 @@ def main():
         pretrain_lr=0.0001
         all=False
         gzsl=False
-        additional_loss=True
+        additional_loss=False
         xe=1.0
         attri=0.01
         regular=5e-06
