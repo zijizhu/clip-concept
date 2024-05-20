@@ -9,7 +9,6 @@ from tqdm import tqdm
 from typing import Callable
 from datetime import datetime
 from torch.utils.data import DataLoader
-from torch.utils.tensorboard.writer import SummaryWriter
 
 from data.cub.cub_dataset import (
     CUBDataset,
@@ -20,7 +19,7 @@ from apn import compute_corrects
 
 
 @torch.no_grad()
-def val_epoch(model: nn.Module, attribute_seen, acc_fn: nn.Module | Callable, dataloader: DataLoader, writer: SummaryWriter,
+def val_epoch(model: nn.Module, attribute_seen, acc_fn: nn.Module | Callable, dataloader: DataLoader,
               dataset_size: int, epoch: int, batch_size: int, device: torch.device, logger: logging.Logger):
 
     running_corrects = 0
@@ -38,7 +37,6 @@ def val_epoch(model: nn.Module, attribute_seen, acc_fn: nn.Module | Callable, da
         running_corrects += acc_fn(output, batch_target)
 
     epoch_acc = running_corrects / dataset_size
-    writer.add_scalar('Acc/val', epoch_acc, epoch)
     logger.info(f'EPOCH {epoch} Val Acc: {epoch_acc:.4f}')
 
 
