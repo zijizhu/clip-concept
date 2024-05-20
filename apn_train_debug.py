@@ -30,16 +30,12 @@ def val_epoch(model: nn.Module, attribute_seen, acc_fn: nn.Module | Callable, da
 
     for batch in tqdm(dataloader):
         batch_input, batch_target = batch['pixel_values'], batch['class_ids']
-        batch_target = batch_target.to(device)
-        model.zero_grad()
         # map target labels
-        input_v = torch.autograd.Variable(batch_input)
-        label_v = torch.autograd.Variable(batch_target)
-        input_v = input_v.to(device)
-        label_v = label_v.to(device)
+        input_v = batch_input.to(device)
+        label_v = batch_target.to(device)
         output, pre_attri, attention, pre_class = model(input_v, attribute_seen)
 
-        running_corrects += acc_fn(output, batch_target)
+        running_corrects += acc_fn(output, label_v)
 
     epoch_acc = running_corrects / dataset_size
     logger.info(f'EPOCH {epoch} Val Acc: {epoch_acc:.4f}')
@@ -174,19 +170,21 @@ def main():
     criterion = nn.CrossEntropyLoss()
     criterion_regre = nn.MSELoss()
 
+    optimizer = torch.optim.Adam(params=filter(lambda p: p.requires_grad, model.parameters()),
+                                 lr=opt.classifier_lr, betas=(opt.beta1, 0.999))
+
     print('Train and test...')
     for epoch in range(opt.nepoch):
         # print("training")
         model.to(device)
         model.train()
-        current_lr = opt.classifier_lr * (0.8 ** (epoch // 10))
         realtrain = epoch > opt.pretrain_epoch
-        if epoch <= opt.pretrain_epoch:   # pretrain ALE for the first several epoches
-            optimizer = torch.optim.Adam(params=[model.prototype_vectors[layer_name], model.ALE_vector],
-                                    lr=opt.pretrain_lr, betas=(opt.beta1, 0.999))
-        else:
-            optimizer = torch.optim.Adam(params=filter(lambda p: p.requires_grad, model.parameters()),
-                                    lr=current_lr, betas=(opt.beta1, 0.999))
+        # if epoch <= opt.pretrain_epoch:   # pretrain ALE for the first several epoches
+        #     optimizer = torch.optim.Adam(params=[model.prototype_vectors[layer_name], model.ALE_vector],
+        #                             lr=opt.pretrain_lr, betas=(opt.beta1, 0.999))
+        # else:
+            # optimizer = torch.optim.Adam(params=filter(lambda p: p.requires_grad, model.parameters()),
+            #                         lr=opt.classifier_lr, betas=(opt.beta1, 0.999))
         # loss for print
         loss_log = {'ave_loss': 0, 'l_xe_final': 0, 'l_attri_final': 0, 'l_regular_final': 0,
                     'l_xe_layer': 0, 'l_attri_layer': 0, 'l_regular_layer': 0, 'l_cpt': 0}
@@ -196,10 +194,8 @@ def main():
             batch_input, batch_target = batch['pixel_values'], batch['class_ids']
             model.zero_grad()
             # map target labels
-            input_v = torch.autograd.Variable(batch_input)
-            label_v = torch.autograd.Variable(batch_target)
-            input_v = input_v.to(device)
-            label_v = label_v.to(device)
+            input_v = batch_input.to(device)
+            label_v = batch_target.to(device)
             output, pre_attri, attention, pre_class = model(input_v, attribute_seen)
             label_a = attribute_seen[:, label_v].t()
 
