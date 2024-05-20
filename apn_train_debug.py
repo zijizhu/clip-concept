@@ -15,7 +15,11 @@ from data.cub.cub_dataset import (
     get_transforms_resnet101
 )
 from apn_debug import resnet_proto_IoU, Loss_fn, get_middle_graph
-from apn import compute_corrects
+
+
+@torch.no_grad()
+def compute_corrects(preds: torch.Tensor, class_ids: torch.Tensor):
+    return torch.sum(torch.argmax(preds.data, dim=-1) == class_ids.data).item()
 
 
 @torch.no_grad()
