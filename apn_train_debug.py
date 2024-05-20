@@ -92,7 +92,6 @@ def main():
         checkpointroot='./checkpoint'
     
     opt = Args()
-    opt.batch_size=4
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     #################
     # Setup logging #
