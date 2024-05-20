@@ -4,7 +4,7 @@ from torch import optim
 import torch.nn.functional as F
 from torch.optim import lr_scheduler
 from torchvision.models import resnet101, ResNet101_Weights, ResNet
-from torchvision.models.feature_extraction import create_feature_extractor
+# from torchvision.models.feature_extraction import create_feature_extractor
 
 
 ########################################
@@ -20,10 +20,7 @@ class APN(nn.Module):
         ) -> None:
         super().__init__()
         if isinstance(backbone, ResNet):
-            self.backbone = create_feature_extractor(
-                backbone,
-                {'layer4.2.relu_2': 'features'}
-            )
+            self.backbone = torch.nn.Sequential(*list(backbone.children())[:-2])
             self.dim = backbone.fc.in_features
         else:
             raise NotImplementedError
