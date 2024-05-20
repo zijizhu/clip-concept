@@ -27,7 +27,7 @@ class APN(nn.Module):
         self.num_classes, self.num_attrs = class_embeddings.shape
 
         self.register_buffer('class_embeddings', class_embeddings)
-        self.attr_prototypes = nn.Parameter(2e-4 * torch.rand(self.num_attrs, self.dim), requires_grad=True)
+        self.attr_prototypes = nn.Parameter(torch.zeros(self.num_attrs, self.dim))
 
         assert dist in ['dot', 'l2']
         self.dist = dist
