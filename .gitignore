@@ -5,3 +5,4 @@ logs
 .idea
 *.npz
 .DS_Store
+*.tar
