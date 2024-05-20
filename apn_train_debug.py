@@ -65,7 +65,8 @@ def main():
         cuda=True
         pretrain_classifier=''
         manualSeed=4896
-        resnet_path='./pretrained_models/resnet101_c.pth.tar'
+        # resnet_path='./pretrained_models/resnet101_c.pth.tar'
+        resnet_path='checkpoints/resnet101_ft_CUB.pt'
         train_id=0
         pretrained=None
         image_type='test_unseen_loc'

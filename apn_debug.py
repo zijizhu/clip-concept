@@ -41,7 +41,8 @@ class resnet_proto_IoU(nn.Module):
             num_fc = num_fc_dic['sun']
         else:
             num_fc = 1000
-        resnet.fc = nn.Linear(num_ftrs, num_fc)
+        # resnet.fc = nn.Linear(num_ftrs, num_fc)
+        resnet.fc = nn.Linear(num_ftrs, 200 )
 
         # 01 - load resnet to model1
         if opt.resnet_path is not None:
