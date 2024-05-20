@@ -132,7 +132,7 @@ def load_apn(
     apn_net = APN(backbone, class_embeddings, dist=dist)
     apn_loss = APNLoss(loss_coef_dict)
 
-    optimizer = optim.AdamW(params=[apn_net.attr_prototypes], lr=lr, betas=betas)
+    optimizer = optim.AdamW(params=[apn_net.conv], lr=lr, betas=betas)
     scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=step_size, gamma=gamma)
     return apn_net, apn_loss, optimizer, scheduler
 
