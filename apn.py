@@ -41,10 +41,6 @@ class APN(nn.Module):
 
         if self.dist == 'dot':
             attn_maps = F.conv2d(features, self.attr_prototypes[..., None, None])  # shape: [b,k,h,w]
-        elif self.dist == 'l2':
-            features = features.view(b, c, h*w).permute(0, 2, 1)  # shape: [b,h*w,c]
-            prototypes_batch = self.attr_prototypes.unsqueeze(0).expand(b, -1, -1)  # shape: [b,k,c]
-            attn_maps = 1 / torch.cdist(features, prototypes_batch, p=2).reshape(b, self.k, h, w)  # shape: [b,k,h,w]
         else:
             raise NotImplementedError
 
@@ -69,14 +65,15 @@ class APNLoss(nn.Module):
         self.l_reg = nn.MSELoss()
 
     def forward(self, model_outputs: dict[str, torch.Tensor], batch_inputs: dict[str, torch.Tensor]):
+        l_cls = self.loss_coef_dict['l_cls'] * self.l_cls(model_outputs['class_scores'], batch_inputs['class_ids'])
+        l_reg = self.loss_coef_dict['l_reg'] * self.l_reg(model_outputs['attr_scores'], batch_inputs['attr_scores'])
+        l_total = l_cls + l_reg
         loss_dict = {
-            'l_cls': self.loss_coef_dict['l_cls'] * self.l_cls(model_outputs['class_scores'], batch_inputs['class_ids']),
-            'l_reg': self.loss_coef_dict['l_reg'] * self.l_reg(model_outputs['attr_scores'], batch_inputs['attr_scores']),
-            # 'l_cpt': self.loss_coef_dict['l_cpt'] * self.l_cpt(model_outputs['attn_maps'])
+            'l_cls': l_cls.item(),
+            'l_reg': l_reg.item(),
+            'l_total': l_total.item()
         }
-        l_total = sum(loss for loss in loss_dict.values())
-        loss_dict['l_total'] = l_total
-        return loss_dict
+        return loss_dict, l_total
 
     @staticmethod
     def l_cpt(attn_maps: torch.Tensor):

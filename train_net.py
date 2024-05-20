@@ -31,16 +31,14 @@ def train_epoch(model: nn.Module, loss_fn: nn.Module, loss_keys: list[str], acc_
     for batch_inputs in tqdm(dataloader):
         batch_inputs = {k: v.to(device) for k, v in batch_inputs.items()}
         outputs = model(batch_inputs)
-        loss_dict = loss_fn(outputs, batch_inputs)  # type: dict[str, torch.Tensor]
-
-        total_loss = loss_dict['l_total']
+        loss_dict, total_loss = loss_fn(outputs, batch_inputs)  # type: dict[str, torch.Tensor]
 
         total_loss.backward()
         optimizer.step()
         optimizer.zero_grad()
 
         for loss_name, loss in loss_dict.items():
-            running_losses[loss_name] += loss.item() * batch_size
+            running_losses[loss_name] += loss * batch_size
 
         running_corrects += acc_fn(outputs, batch_inputs)
 
