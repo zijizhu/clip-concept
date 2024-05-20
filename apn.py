@@ -27,7 +27,8 @@ class APN(nn.Module):
         self.num_classes, self.num_attrs = class_embeddings.shape
 
         self.register_buffer('class_embeddings', class_embeddings)
-        self.attr_prototypes = nn.Parameter(torch.zeros(self.num_attrs, self.dim))
+        # self.attr_prototypes = nn.Parameter(torch.zeros(self.num_attrs, self.dim))
+        self.conv = nn.Conv2d(self.dim, self.num_attrs, kernel_size=(1, 1))
 
         assert dist in ['dot', 'l2']
         self.dist = dist
@@ -39,7 +40,8 @@ class APN(nn.Module):
         b, c, h, w = features.shape
 
         if self.dist == 'dot':
-            attn_maps = F.conv2d(features, self.attr_prototypes[..., None, None])  # shape: [b,k,h,w]
+            # attn_maps = F.conv2d(features, self.attr_prototypes[..., None, None])  # shape: [b,k,h,w]
+            attn_maps = self.conv(features)
         else:
             raise NotImplementedError
 
