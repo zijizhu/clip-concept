@@ -174,8 +174,8 @@ def main():
     criterion = nn.CrossEntropyLoss()
     criterion_regre = nn.MSELoss()
 
-    optimizer = torch.optim.Adam(params=filter(lambda p: p.requires_grad, model.parameters()),
-                                 lr=opt.classifier_lr, betas=(opt.beta1, 0.999))
+    # optimizer = torch.optim.Adam(params=filter(lambda p: p.requires_grad, model.parameters()),
+    #                              lr=opt.classifier_lr, betas=(opt.beta1, 0.999))
 
     print('Train and test...')
     for epoch in range(opt.nepoch):
@@ -183,12 +183,12 @@ def main():
         model.to(device)
         model.train()
         realtrain = epoch > opt.pretrain_epoch
-        # if epoch <= opt.pretrain_epoch:   # pretrain ALE for the first several epoches
-        #     optimizer = torch.optim.Adam(params=[model.prototype_vectors[layer_name], model.ALE_vector],
-        #                             lr=opt.pretrain_lr, betas=(opt.beta1, 0.999))
-        # else:
-            # optimizer = torch.optim.Adam(params=filter(lambda p: p.requires_grad, model.parameters()),
-            #                         lr=opt.classifier_lr, betas=(opt.beta1, 0.999))
+        if epoch <= opt.pretrain_epoch:   # pretrain ALE for the first several epoches
+            optimizer = torch.optim.Adam(params=[model.prototype_vectors[layer_name], model.ALE_vector],
+                                    lr=opt.pretrain_lr, betas=(opt.beta1, 0.999))
+        else:
+            optimizer = torch.optim.Adam(params=filter(lambda p: p.requires_grad, model.parameters()),
+                                    lr=opt.classifier_lr, betas=(opt.beta1, 0.999))
         # loss for print
         loss_log = {'ave_loss': 0, 'l_xe_final': 0, 'l_attri_final': 0, 'l_regular_final': 0,
                     'l_xe_layer': 0, 'l_attri_layer': 0, 'l_regular_layer': 0, 'l_cpt': 0}
