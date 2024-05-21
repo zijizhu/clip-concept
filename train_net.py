@@ -236,7 +236,6 @@ def main():
             dataloader=dataloader_val,
             writer=summary_writer,
             dataset_size=len(dataset_val),
-            batch_size=cfg.OPTIM.BATCH_SIZE,
             device=device,
             epoch=epoch,
             logger=logger,
