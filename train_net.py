@@ -194,7 +194,7 @@ def main():
         class_embeddings = dataset_train.attribute_vectors_pt
         net, loss_fn, optimizer, scheduler = load_apn(
             backbone_name=cfg.MODEL.BACKBONE.NAME,
-            backbone_weights_path=cfg.MODEL.BACKBONE.CKPT_PATH,
+            # backbone_weights_path=cfg.MODEL.BACKBONE.CKPT_PATH,
             class_embeddings=class_embeddings,
             loss_coef_dict=dict(cfg.MODEL.LOSSES),
             dist=cfg.MODEL.DIST,

@@ -3,7 +3,7 @@ MODEL:
   DIST: 'dot'
   BACKBONE:
     NAME: 'resnet101'
-    CKPT_PATH: 'checkpoints/resnet101_ft_CUB.pt'
+    # CKPT_PATH: 'checkpoints/resnet101_ft_CUB.pt'
   IMAGE_SIZE: 224
   LOSSES:
     L_CLS: 1
