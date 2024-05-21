@@ -127,8 +127,8 @@ def load_apn(
         backbone.fc = nn.Linear(backbone.fc.in_features, num_classes)
     else:
         raise NotImplementedError
-    backbone_weights = torch.load(backbone_weights_path, map_location='cpu')
-    backbone.load_state_dict(backbone_weights)
+    # backbone_weights = torch.load(backbone_weights_path, map_location='cpu')
+    # backbone.load_state_dict(backbone_weights)
     apn_net = APN(backbone, class_embeddings, dist=dist)
     apn_loss = APNLoss(loss_coef_dict)
 
