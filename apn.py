@@ -129,7 +129,7 @@ def load_apn(
     # backbone_weights = torch.load(backbone_weights_path, map_location='cpu')
     # backbone.load_state_dict(backbone_weights)
     apn_net = APN(backbone, class_embeddings, dist=dist)
-    apn_loss = APNLoss(loss_coef_dict)
+    apn_loss = APNLoss(**{k.lower(): v for k, v in loss_coef_dict.items()})
 
     optimizer = optim.AdamW(
         params=[
