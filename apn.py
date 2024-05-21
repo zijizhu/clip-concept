@@ -75,6 +75,7 @@ class APNLoss(nn.Module):
 
         # Compute coordinates of max attention scores, shape: [b,k]
         _, max_attn_indices = F.max_pool2d(attn_maps.detach(), kernel_size=(h, w), return_indices=True)
+        max_attn_indices = max_attn_indices.squeeze()
         max_attn_h, max_attn_w = torch.unravel_index(max_attn_indices, shape=(h, w))  # shape: [b,k], [b,k]
         max_attn_h = max_attn_h[..., None, None].expand(-1, -1, h, w)  # shape: [b,k,h,w]
         max_attn_w = max_attn_w[..., None, None].expand(-1, -1, h, w)  # shape: [b,k,h,w]
