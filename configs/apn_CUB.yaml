@@ -8,7 +8,7 @@ MODEL:
   LOSSES:
     L_CLS: 1
     L_REG: 0.01
-    # L_CPT: 0.0
+    L_CPT: 0.2
 DATASET:
   NAME: "CUB"
   NUM_CLASSES: 200

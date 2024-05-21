@@ -1,21 +1,23 @@
 import os
-import torch
+
 import numpy as np
 import pandas as pd
-from PIL import Image
+import torch
 import torchvision.transforms as t
-from torch.utils.data import Dataset
 import torchvision.transforms.functional as f
+from PIL import Image
+from torch.utils.data import Dataset
 
 from .constants import SELECTED_CONCEPTS
 
 
 class CUBDataset(Dataset):
     def __init__(
-        self, dataset_dir: str,
+        self,
+        dataset_dir: str,
         num_attrs: int = 312,
         split: str = "train",
-        transforms: t.Compose | None = None
+        transforms: t.Compose | None = None,
     ) -> None:
         super().__init__()
         self.split = split
@@ -44,9 +46,9 @@ class CUBDataset(Dataset):
             names=["image_id", "is_train"],
         )
 
-        main_df = (file_paths_df
-                   .merge(image_labels_df, on="image_id")
-                   .merge(train_test_split_df, on="image_id"))
+        main_df = file_paths_df.merge(image_labels_df, on="image_id").merge(
+            train_test_split_df, on="image_id"
+        )
 
         main_df["image_id"] -= 1
         main_df["class_id"] -= 1
@@ -85,7 +87,7 @@ class CUBDataset(Dataset):
             attribute_vectors = attribute_vectors[:, SELECTED_CONCEPTS]
         else:
             attribute_vectors = attribute_vectors
-        
+
         # Normalize attribute vectors
         attribute_vectors /= np.linalg.norm(attribute_vectors, ord=2, axis=-1, keepdims=True)
         self.attribute_vectors = attribute_vectors  # type: np.ndarray
@@ -102,30 +104,25 @@ class CUBDataset(Dataset):
         )
 
         self.class_names = (
-            class_names_df["class_name"]
-            .str.split(".")
-            .str[-1]
-            .replace("_", " ", regex=True)
-            .to_list()
+            class_names_df["class_name"].str.split(".").str[-1].replace("_", " ", regex=True).to_list()
         )
         self.transforms = transforms
 
     @property
     def attribute_vectors_pt(self):
         return torch.tensor(self.attribute_vectors, dtype=torch.float32)
-    
-    def get_topk_attributes(self,
-                            class_id: torch.Tensor | int,
-                            k: int = 5,
-                            pred_scores: torch.Tensor | None = None) -> pd.DataFrame:
-        '''Given a class id, return attributes with top k scores (ground truth) of this class'''
+
+    def get_topk_attributes(
+        self, class_id: torch.Tensor | int, k: int = 5, pred_scores: torch.Tensor | None = None
+    ) -> pd.DataFrame:
+        """Given a class id, return k attributes with highest (ground truth) scores of this class"""
         if isinstance(class_id, torch.Tensor):
             class_id = class_id.item()
         values, indices = torch.topk(self.attribute_vectors_pt[class_id], k=k)
         top_attributes_df = self.attributes_df[indices.numpy()]
-        top_attributes_df['ground_truth_scores'] = values.numpy()
+        top_attributes_df["ground_truth_scores"] = values.numpy()
         if pred_scores:
-            top_attributes_df['predicted_scores'] = pred_scores.numpy()
+            top_attributes_df["predicted_scores"] = pred_scores.numpy()
         return top_attributes_df
 
     def __len__(self):
@@ -141,53 +138,58 @@ class CUBDataset(Dataset):
 
         attr_scores = self.attribute_vectors_pt[class_id]
 
-        if self.transforms:
-            pixel_values = self.transforms(image)
-        else:
-            pixel_values = f.pil_to_tensor(image)
+        pixel_values = self.transforms(image) if self.transforms else f.pil_to_tensor(image)
 
         return {
             "image_ids": image_id,
             "pixel_values": pixel_values,
             "class_ids": torch.tensor(class_id, dtype=torch.long),
-            "attr_scores": attr_scores.clone()
+            "attr_scores": attr_scores.clone(),
         }
 
 
 def get_transforms_part_discovery(resolution: int = 448):
-    '''A set of transforms used in https://github.com/robertdvdk/part_detection'''
-    train_transforms = t.Compose([
+    """A set of transforms used in https://github.com/robertdvdk/part_detection"""
+    train_transforms = t.Compose(
+        [
             t.Resize(size=resolution, antialias=True),
             t.RandomHorizontalFlip(),
             t.ColorJitter(0.1),
             t.RandomAffine(degrees=90, translate=(0.2, 0.2), scale=(0.8, 1.2)),
             t.RandomCrop(resolution),
             t.ToTensor(),
-    ])
-    test_transforms = t.Compose([
+        ]
+    )
+    test_transforms = t.Compose(
+        [
             t.Resize(size=resolution, antialias=True),
             t.CenterCrop(size=resolution),
             t.ToTensor(),
-    ])
+        ]
+    )
 
     return train_transforms, test_transforms
 
 
 def get_transforms_resnet101():
-    '''A set of transforms for standard resnet101 training from torchvision, reference:
-    https://pytorch.org/vision/main/models/generated/torchvision.models.resnet101.html'''
-    train_transforms = t.Compose([
-        t.Resize(size=232, interpolation=t.InterpolationMode.BILINEAR),
-        t.CenterCrop(size=224),
-        t.ToTensor(),
-        t.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-    ])
+    """A set of transforms for standard resnet101 training from torchvision, reference:
+    https://pytorch.org/vision/main/models/generated/torchvision.models.resnet101.html"""
+    train_transforms = t.Compose(
+        [
+            t.Resize(size=232, interpolation=t.InterpolationMode.BILINEAR),
+            t.CenterCrop(size=224),
+            t.ToTensor(),
+            t.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+        ]
+    )
 
-    test_transforms = t.Compose([
-        t.Resize(size=232, interpolation=t.InterpolationMode.BILINEAR),
-        t.CenterCrop(size=224),
-        t.ToTensor(),
-        t.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-    ])
+    test_transforms = t.Compose(
+        [
+            t.Resize(size=232, interpolation=t.InterpolationMode.BILINEAR),
+            t.CenterCrop(size=224),
+            t.ToTensor(),
+            t.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+        ]
+    )
 
     return train_transforms, test_transforms

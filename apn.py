@@ -1,23 +1,16 @@
 import torch
-from torch import nn
-from torch import optim
 import torch.nn.functional as F
+from torch import nn, optim
 from torch.optim import lr_scheduler
-from torchvision.models import resnet101, ResNet101_Weights, ResNet
-# from torchvision.models.feature_extraction import create_feature_extractor
-
+from torchvision.models import ResNet, ResNet101_Weights, resnet101
 
 ########################################
 # Modified Attribute Prototype Network #
 ########################################
 
+
 class APN(nn.Module):
-    def __init__(
-            self,
-            backbone: nn.Module,
-            class_embeddings: torch.Tensor,
-            dist: str = 'dot'
-        ) -> None:
+    def __init__(self, backbone: nn.Module, class_embeddings: torch.Tensor, dist: str = "dot") -> None:
         super().__init__()
         if isinstance(backbone, ResNet):
             self.backbone = torch.nn.Sequential(*list(backbone.children())[:-2])
@@ -26,20 +19,20 @@ class APN(nn.Module):
             raise NotImplementedError
         self.num_classes, self.num_attrs = class_embeddings.shape
 
-        self.register_buffer('class_embeddings', class_embeddings)
+        self.register_buffer("class_embeddings", class_embeddings)
         # self.attr_prototypes = nn.Parameter(torch.zeros(self.num_attrs, self.dim))
         self.conv = nn.Conv2d(self.dim, self.num_attrs, kernel_size=(1, 1))
 
-        assert dist in ['dot', 'l2']
+        assert dist in ["dot", "l2"]
         self.dist = dist
 
-    def forward(self, batch_inputs: dict[str, torch.Tensor]):
-        x = batch_inputs['pixel_values']
+    def forward(self, batch: dict[str, torch.Tensor]):
+        x = batch["pixel_values"]
 
         features = self.backbone(x)  # type: torch.Tensor
         b, c, h, w = features.shape
 
-        if self.dist == 'dot':
+        if self.dist == "dot":
             # attn_maps = F.conv2d(features, self.attr_prototypes[..., None, None])  # shape: [b,k,h,w]
             attn_maps = self.conv(features)
         else:
@@ -51,26 +44,22 @@ class APN(nn.Module):
         class_scores = attr_scores @ self.class_embeddings.T
 
         # shape: [b,num_classes], [b,k], [b,k,h,w]
-        return {
-            'class_scores': class_scores,
-            'attr_scores': attr_scores,
-            'attn_maps': attn_maps
-        }
+        return {"class_scores": class_scores, "attr_scores": attr_scores, "attn_maps": attn_maps}
 
 
 class APNLoss(nn.Module):
     def __init__(self, **kwargs):
         super().__init__()
-        self.l_cls_coef = kwargs['l_cls']  # type: int
-        self.l_reg_coef = kwargs['l_reg']  # type: int
+        self.l_cls_coef = kwargs["l_cls"]  # type: int
+        self.l_reg_coef = kwargs["l_reg"]  # type: int
 
         self.l_cls = nn.CrossEntropyLoss()
         self.l_reg = nn.MSELoss()
 
-    def forward(self, model_outputs: dict[str, torch.Tensor], batch_inputs: dict[str, torch.Tensor]):
+    def forward(self, outputs: dict[str, torch.Tensor], batch: dict[str, torch.Tensor]):
         loss_dict = {
-            'l_cls': self.l_cls_coef * self.l_cls(model_outputs['class_scores'], batch_inputs['class_ids']),
-            'l_reg': self.l_cls_coef * self.l_reg(model_outputs['attr_scores'], batch_inputs['attr_scores'])
+            "l_cls": self.l_cls_coef * self.l_cls(outputs["class_scores"], batch["class_ids"]),
+            "l_reg": self.l_reg_coef * self.l_reg(outputs["attr_scores"], batch["attr_scores"]),
         }
         l_total = sum(loss_dict.values())
         return loss_dict, l_total
@@ -78,16 +67,17 @@ class APNLoss(nn.Module):
     @staticmethod
     def l_cpt(attn_maps: torch.Tensor):
         # TODO Fix this loss. It prevents the model from learning.
-        (b, k, h, w), device = attn_maps.shape, attn_maps.device
-        grid_w, grid_h = torch.meshgrid(torch.arange(w), torch.arange(h), indexing='xy')
+        device = attn_maps.device
+        b, k, h, w = attn_maps.shape
+        grid_w, grid_h = torch.meshgrid(torch.arange(w), torch.arange(h), indexing="xy")
         grid_w, grid_h = grid_w.to(device), grid_h.to(device)
 
         # Compute coordinates of max attention scores
-        max_attn_scores = F.max_pool2d(attn_maps, kernel_size=(h, w))  # shape: [b,k,1,1]
+        max_attn_scores = F.max_pool2d(attn_maps.detach(), kernel_size=(h, w))  # shape: [b,k,1,1]
         max_attn_coords = torch.nonzero(attn_maps == max_attn_scores)  # shape: [b*k,4]
         max_attn_coords = max_attn_coords[..., 2:]  # shape: [b*k,2]
 
-        attn_maps = F.sigmoid(attn_maps.reshape(b*k, h, w))  # range: [0,1]
+        attn_maps = F.sigmoid(attn_maps.reshape(b * k, h, w))  # range: [0,1]
 
         all_losses = []
         for m, coords in zip(attn_maps, max_attn_coords):
@@ -110,34 +100,31 @@ class APNLoss(nn.Module):
 
 
 def load_apn(
-        backbone_name: str,
-        backbone_weights_path: str,
-        class_embeddings: torch.Tensor,
-        loss_coef_dict: dict[str, float],
-        dist: str,
-        lr: float,
-        betas: tuple[float, float],
-        step_size: int,
-        gamma: float
-    ) -> tuple[nn.Module, nn.Module, optim.Optimizer, lr_scheduler.LRScheduler]:
-    if backbone_name == 'resnet101':
+    backbone_name: str,
+    class_embeddings: torch.Tensor,
+    loss_coef_dict: dict[str, float],
+    dist: str,
+    lr: float,
+    betas: tuple[float, float],
+    step_size: int,
+    gamma: float,
+) -> tuple[nn.Module, nn.Module, optim.Optimizer, lr_scheduler.LRScheduler]:
+    if backbone_name == "resnet101":
         num_classes, num_attrs = class_embeddings.shape
         backbone = resnet101(weights=ResNet101_Weights.DEFAULT)
         backbone.fc = nn.Linear(backbone.fc.in_features, num_classes)
     else:
         raise NotImplementedError
-    # backbone_weights = torch.load(backbone_weights_path, map_location='cpu')
-    # backbone.load_state_dict(backbone_weights)
     apn_net = APN(backbone, class_embeddings, dist=dist)
     apn_loss = APNLoss(**{k.lower(): v for k, v in loss_coef_dict.items()})
 
     optimizer = optim.AdamW(
         params=[
-            {'params': apn_net.backbone.parameters(), 'lr': lr * 0.1},
-            {'params': apn_net.conv.parameters()}
+            {"params": apn_net.backbone.parameters(), "lr": lr * 0.1},
+            {"params": apn_net.conv.parameters()},
         ],
         lr=lr,
-        betas=betas
+        betas=betas,
     )
     scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=step_size, gamma=gamma)
     return apn_net, apn_loss, optimizer, scheduler
@@ -147,21 +134,22 @@ def load_apn(
 # Backbone fine-tuning #
 ########################
 
+
 class BackBone(nn.Module):
     def __init__(self, name: str, num_classes: int):
         super().__init__()
-        assert name in ['resnet101', 'ViT-L/16']
-        if name == 'resnet101':
+        assert name in ["resnet101", "ViT-L/16"]
+        if name == "resnet101":
             self.backbone = resnet101(weights=ResNet101_Weights.DEFAULT)
         else:
             raise NotImplementedError
         self.backbone.fc = nn.Linear(self.backbone.fc.in_features, num_classes)
 
-    def forward(self, batch_inputs: dict[str, torch.Tensor]):
-        class_scores = self.backbone(batch_inputs['pixel_values'])
-        return {'class_scores': class_scores}
+    def forward(self, batch: dict[str, torch.Tensor]):
+        class_scores = self.backbone(batch["pixel_values"])
+        return {"class_scores": class_scores}
 
-    def state_dict(self, *args, **kwargs):
+    def state_dict(self):
         return self.backbone.state_dict()
 
 
@@ -170,22 +158,20 @@ class BackboneFinetuneLoss(nn.Module):
         super().__init__()
         self.loss = nn.CrossEntropyLoss()
 
-    def forward(self, model_outputs: dict[str, torch.Tensor], batch_inputs: dict[str, torch.Tensor]):
-        ce_loss = self.loss(model_outputs['class_scores'], batch_inputs['class_ids'])
-        return {'l_total': ce_loss}
+    def forward(self, model_outputs: dict[str, torch.Tensor], batch: dict[str, torch.Tensor]):
+        ce_loss = self.loss(model_outputs["class_scores"], batch["class_ids"])
+        return {"l_total": ce_loss}
 
 
 @torch.no_grad()
-def compute_corrects(model_outputs: dict[str, torch.Tensor], batch_inputs: dict[str, torch.Tensor]):
-    class_scores, class_ids = model_outputs['class_scores'], batch_inputs['class_ids']
+def compute_corrects(outputs: dict[str, torch.Tensor], batch: dict[str, torch.Tensor]):
+    class_scores, class_ids = outputs["class_scores"], batch["class_ids"]
     return torch.sum(torch.argmax(class_scores.data, dim=-1) == class_ids.data).item()
 
 
-def load_backbone_for_ft(name: str,
-                         num_classes: int,
-                         lr: float,
-                         step_size: int,
-                         gamma: float) -> tuple[nn.Module, nn.Module, optim.Optimizer, lr_scheduler.LRScheduler]:
+def load_backbone_for_ft(
+    name: str, num_classes: int, lr: float, step_size: int, gamma: float
+) -> tuple[nn.Module, nn.Module, optim.Optimizer, lr_scheduler.LRScheduler]:
     net = BackBone(name=name, num_classes=num_classes)
     loss_fn = BackboneFinetuneLoss()
 
