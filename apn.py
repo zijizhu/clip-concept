@@ -45,7 +45,7 @@ class APN(nn.Module):
         else:
             raise NotImplementedError
 
-        max_attn_scores = F.max_pool2d(attn_maps, kernel_size=(h, w))  # shape: [b,k,1,1]
+        max_attn_scores = F.max_pool2d(attn_maps, kernel_size=(h, w))
         attr_scores = max_attn_scores.squeeze()  # shape: [b, k]
 
         class_scores = attr_scores @ self.class_embeddings.T
@@ -59,21 +59,20 @@ class APN(nn.Module):
 
 
 class APNLoss(nn.Module):
-    def __init__(self, loss_coef_dict: dict[str, float]):
+    def __init__(self, **kwargs):
         super().__init__()
-        self.loss_coef_dict = {k.lower(): v for k, v in loss_coef_dict.items()}
+        self.l_cls_coef = kwargs['l_cls']  # type: int
+        self.l_reg_coef = kwargs['l_reg']  # type: int
+
         self.l_cls = nn.CrossEntropyLoss()
         self.l_reg = nn.MSELoss()
 
     def forward(self, model_outputs: dict[str, torch.Tensor], batch_inputs: dict[str, torch.Tensor]):
-        l_cls = self.loss_coef_dict['l_cls'] * self.l_cls(model_outputs['class_scores'], batch_inputs['class_ids'])
-        l_reg = self.loss_coef_dict['l_reg'] * self.l_reg(model_outputs['attr_scores'], batch_inputs['attr_scores'])
-        l_total = l_cls + l_reg
         loss_dict = {
-            'l_cls': l_cls.item(),
-            'l_reg': l_reg.item(),
-            'l_total': l_total.item()
+            'l_cls': self.l_cls_coef * self.l_cls(model_outputs['class_scores'], batch_inputs['class_ids']),
+            'l_reg': self.l_cls_coef * self.l_reg(model_outputs['attr_scores'], batch_inputs['attr_scores'])
         }
+        l_total = sum(loss_dict.values())
         return loss_dict, l_total
 
     @staticmethod
@@ -132,7 +131,14 @@ def load_apn(
     apn_net = APN(backbone, class_embeddings, dist=dist)
     apn_loss = APNLoss(loss_coef_dict)
 
-    optimizer = optim.AdamW(params=apn_net.conv.parameters(), lr=lr, betas=betas)
+    optimizer = optim.AdamW(
+        params=[
+            {'params': apn_net.backbone.parameters(), 'lr': lr * 0.1},
+            {'params': apn_net.conv.parameters()}
+        ],
+        lr=lr,
+        betas=betas
+    )
     scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=step_size, gamma=gamma)
     return apn_net, apn_loss, optimizer, scheduler
 
