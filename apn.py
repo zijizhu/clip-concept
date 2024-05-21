@@ -80,7 +80,7 @@ class APNLoss(nn.Module):
         max_attn_h = max_attn_h[..., None, None].expand(-1, -1, h, w)  # shape: [b,k,h,w]
         max_attn_w = max_attn_w[..., None, None].expand(-1, -1, h, w)  # shape: [b,k,h,w]
 
-        attn_maps = F.sigmoid(attn_maps.reshape(b * k, h, w))  # shape: [b*k,h,w], range: [0,1]
+        attn_maps = F.sigmoid(attn_maps)  # shape: [b*k,h,w], range: [0,1]
         losses = attn_maps * ((grid_h - max_attn_h) ** 2 + (grid_w - max_attn_w) ** 2)  # shape: [b*k,h,w]
 
         return torch.mean(losses)
