@@ -52,6 +52,7 @@ class APNLoss(nn.Module):
         super().__init__()
         self.l_cls_coef = kwargs["l_cls"]  # type: int
         self.l_reg_coef = kwargs["l_reg"]  # type: int
+        self.l_cpt_coef = kwargs["l_cpt"]  # type: int
 
         self.l_cls = nn.CrossEntropyLoss()
         self.l_reg = nn.MSELoss()
@@ -60,6 +61,7 @@ class APNLoss(nn.Module):
         loss_dict = {
             "l_cls": self.l_cls_coef * self.l_cls(outputs["class_scores"], batch["class_ids"]),
             "l_reg": self.l_reg_coef * self.l_reg(outputs["attr_scores"], batch["attr_scores"]),
+            "l_cpt": self.l_cpt_coef * self.l_cpt(outputs["attn_maps"]),
         }
         l_total = sum(loss_dict.values())
         return loss_dict, l_total

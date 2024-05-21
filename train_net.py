@@ -38,7 +38,7 @@ def train_epoch(
     for batch_inputs in tqdm(dataloader):
         batch_inputs = {k: v.to(device) for k, v in batch_inputs.items()}
         outputs = model(batch_inputs)
-        loss_dict, total_loss = loss_fn(outputs, batch_inputs)  # type: dict[str, torch.Tensor]
+        loss_dict, total_loss = loss_fn(outputs, batch_inputs)
 
         total_loss.backward()
         optimizer.step()
