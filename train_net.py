@@ -219,7 +219,7 @@ def main():
             model=net,
             loss_fn=loss_fn,
             loss_keys=losses,
-            acc_fn=compute_corrects,
+            num_corrects_fn=compute_corrects,
             dataloader=dataloader_train,
             optimizer=optimizer,
             writer=summary_writer,
@@ -232,7 +232,7 @@ def main():
 
         val_epoch(
             model=net,
-            acc_fn=compute_corrects,
+            num_corrects_fn=compute_corrects,
             dataloader=dataloader_val,
             writer=summary_writer,
             dataset_size=len(dataset_val),
