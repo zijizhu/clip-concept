@@ -78,18 +78,14 @@ class APNLoss(nn.Module):
         max_attn_scores = F.max_pool2d(attn_maps.detach(), kernel_size=(h, w))  # shape: [b,k,1,1]
         max_attn_coords = torch.nonzero(attn_maps == max_attn_scores)  # shape: [b*k,4]
         max_attn_coords = max_attn_coords[..., 2:]  # shape: [b*k,2]
+        
+        # shape: [b*k,2] -> [b*k,h,w], [b*k,h,w]
+        grid_ch, grid_cw = max_attn_coords[..., None, None].expand(-1, -1, h, w).unbind(dim=1)
+        attn_maps = F.sigmoid(attn_maps.reshape(b * k, h, w))  # shape: [b*k,h,w], range: [0,1]
+        losses = attn_maps * ((grid_h - grid_ch) ** 2 + (grid_w - grid_cw) ** 2)  # shape: [b*k,h,w]
 
-        attn_maps = F.sigmoid(attn_maps.reshape(b * k, h, w))  # range: [0,1]
+        return torch.mean(losses)
 
-        all_losses = []
-        for m, coords in zip(attn_maps, max_attn_coords):
-            # Expand coords of max attention scores for each attn_map m to shape [2,h,w] and unbind
-            grid_ch, grid_cw = coords[..., None, None].expand(-1, h, w).unbind(dim=0)
-            # High punishment if coords at away from center of attention still have high attention scores
-            m_losses = m * ((grid_h - grid_ch) ** 2 + (grid_w - grid_cw) ** 2)
-            all_losses.append(torch.mean(m_losses))
-
-        return sum(all_losses) / len(all_losses)
 
     @staticmethod
     def l_decorrelation(prototypes: torch.Tensor, group_idxs: torch.Tensor):
