@@ -68,21 +68,19 @@ class APNLoss(nn.Module):
 
     @staticmethod
     def l_cpt(attn_maps: torch.Tensor):
-        # TODO Fix this loss. It prevents the model from learning.
         device = attn_maps.device
         b, k, h, w = attn_maps.shape
         grid_w, grid_h = torch.meshgrid(torch.arange(w), torch.arange(h), indexing="xy")
         grid_w, grid_h = grid_w.to(device), grid_h.to(device)
 
-        # Compute coordinates of max attention scores
-        max_attn_scores = F.max_pool2d(attn_maps.detach(), kernel_size=(h, w))  # shape: [b,k,1,1]
-        max_attn_coords = torch.nonzero(attn_maps == max_attn_scores)  # shape: [b*k,4]
-        max_attn_coords = max_attn_coords[..., 2:]  # shape: [b*k,2]
-        
-        # shape: [b*k,2] -> [b*k,h,w], [b*k,h,w]
-        grid_ch, grid_cw = max_attn_coords[..., None, None].expand(-1, -1, h, w).unbind(dim=1)
+        # Compute coordinates of max attention scores, shape: [b,k]
+        _, max_attn_indices = F.max_pool2d(attn_maps.detach(), kernel_size=(h, w), return_indices=True)
+        max_attn_h, max_attn_w = torch.unravel_index(max_attn_indices, shape=(h, w))  # shape: [b,k], [b,k]
+        max_attn_h = max_attn_h[..., None, None].expand(-1, -1, h, w)  # shape: [b,k,h,w]
+        max_attn_w = max_attn_w[..., None, None].expand(-1, -1, h, w)  # shape: [b,k,h,w]
+
         attn_maps = F.sigmoid(attn_maps.reshape(b * k, h, w))  # shape: [b*k,h,w], range: [0,1]
-        losses = attn_maps * ((grid_h - grid_ch) ** 2 + (grid_w - grid_cw) ** 2)  # shape: [b*k,h,w]
+        losses = attn_maps * ((grid_h - max_attn_h) ** 2 + (grid_w - max_attn_w) ** 2)  # shape: [b*k,h,w]
 
         return torch.mean(losses)
 
