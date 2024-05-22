@@ -20,8 +20,8 @@ class APN(nn.Module):
         self.num_classes, self.num_attrs = class_embeddings.shape
 
         self.register_buffer("class_embeddings", class_embeddings)
-        # self.attr_prototypes = nn.Parameter(torch.zeros(self.num_attrs, self.dim))
-        self.conv = nn.Conv2d(self.dim, self.num_attrs, kernel_size=(1, 1))
+        # self = nn.Conv2d(self.dim, self.num_attrs, kernel_size=(1, 1), bias=False)
+        self.prototypes = nn.Parameter(nn.init.normal_(torch.empty(self.num_attrs, self.dim), std=1e-2))
 
         assert dist in ["dot", "l2"]
         self.dist = dist
@@ -33,41 +33,51 @@ class APN(nn.Module):
         b, c, h, w = features.shape
 
         if self.dist == "dot":
-            # attn_maps = F.conv2d(features, self.attr_prototypes[..., None, None])  # shape: [b,k,h,w]
-            attn_maps = self.conv(features)
+            attn_maps = F.conv2d(features, self.prototypes[..., None, None])  # shape: [b,k,h,w]
+            # attn_maps = self.conv(features)
         else:
             raise NotImplementedError
 
         max_attn_scores = F.max_pool2d(attn_maps, kernel_size=(h, w))
         attr_scores = max_attn_scores.squeeze()  # shape: [b, k]
 
-        class_scores = attr_scores @ self.class_embeddings.T
+        class_scores = attr_scores @ self.class_embeddings.T  # type: torch.Tensor
 
         # shape: [b,num_classes], [b,k], [b,k,h,w]
-        return {"class_scores": class_scores, "attr_scores": attr_scores, "attn_maps": attn_maps}
+        return {
+            "class_scores": class_scores,
+            "attr_scores": attr_scores,
+            "attn_maps": attn_maps,
+            "prototypes": self.prototypes
+        }
 
 
 class APNLoss(nn.Module):
-    def __init__(self, **kwargs):
+    def __init__(self, group_ids: torch.Tensor, **kwargs):
         super().__init__()
         self.l_cls_coef = kwargs["l_cls"]  # type: int
         self.l_reg_coef = kwargs["l_reg"]  # type: int
         self.l_cpt_coef = kwargs["l_cpt"]  # type: int
+        self.l_dec_coef = kwargs["l_dec"]  # type: int
 
         self.l_cls = nn.CrossEntropyLoss()
         self.l_reg = nn.MSELoss()
+        
+        self.group_ids = group_ids
 
     def forward(self, outputs: dict[str, torch.Tensor], batch: dict[str, torch.Tensor]):
         loss_dict = {
             "l_cls": self.l_cls_coef * self.l_cls(outputs["class_scores"], batch["class_ids"]),
             "l_reg": self.l_reg_coef * self.l_reg(outputs["attr_scores"], batch["attr_scores"]),
             "l_cpt": self.l_cpt_coef * self.l_cpt(outputs["attn_maps"]),
+            "l_dec": self.l_dec_coef * self.l_dec(outputs["prototypes"], self.group_ids)
         }
         l_total = sum(loss_dict.values())
         return loss_dict, l_total
 
     @staticmethod
     def l_cpt(attn_maps: torch.Tensor):
+        '''Loss function for compactness of attention maps'''
         device = attn_maps.device
         b, k, h, w = attn_maps.shape
         grid_w, grid_h = torch.meshgrid(torch.arange(w), torch.arange(h), indexing="xy")
@@ -85,20 +95,23 @@ class APNLoss(nn.Module):
 
         return torch.mean(losses)
 
-
     @staticmethod
-    def l_decorrelation(prototypes: torch.Tensor, group_idxs: torch.Tensor):
-        group_weight_norms = []
-        for i in torch.unique(group_idxs):
-            mask = group_idxs == i
-            weight_norm = torch.sum(torch.linalg.norm(prototypes[mask, :], ord=2, dim=0))
-            group_weight_norms.append(weight_norm)
-        return sum(group_weight_norms)
+    def l_dec(prototypes: torch.Tensor, group_ids: torch.Tensor):
+        '''Loss function for decorrelation of attribute groups'''
+        print("group_ids.shape:", group_ids.shape)
+        all_group_losses = []
+        for i in torch.unique(group_ids):
+            mask = group_ids == i
+            print("mask.shape:", mask.shape)
+            group_loss = prototypes[mask, :].pow(2).sum().sqrt()
+            all_group_losses.append(group_loss)
+        return sum(all_group_losses)
 
 
 def load_apn(
     backbone_name: str,
     class_embeddings: torch.Tensor,
+    attr_group_ids: torch.Tensor,
     loss_coef_dict: dict[str, float],
     dist: str,
     lr: float,
@@ -113,12 +126,12 @@ def load_apn(
     else:
         raise NotImplementedError
     apn_net = APN(backbone, class_embeddings, dist=dist)
-    apn_loss = APNLoss(**{k.lower(): v for k, v in loss_coef_dict.items()})
+    apn_loss = APNLoss(attr_group_ids, **{k.lower(): v for k, v in loss_coef_dict.items()})
 
     optimizer = optim.AdamW(
         params=[
             {"params": apn_net.backbone.parameters(), "lr": lr * 0.1},
-            {"params": apn_net.conv.parameters()},
+            {"params": apn_net.prototypes},
         ],
         lr=lr,
         betas=betas,

@@ -1,19 +1,19 @@
 MODEL:
-  NAME: 'apn'
-  DIST: 'dot'
+  NAME: "apn"
+  DIST: "dot"
   BACKBONE:
-    NAME: 'resnet101'
-    # CKPT_PATH: 'checkpoints/resnet101_ft_CUB.pt'
-  IMAGE_SIZE: 224
+    NAME: "resnet101"
   LOSSES:
     L_CLS: 1
     L_REG: 0.01
     L_CPT: 0.2
+    L_DEC: 1e-3  # official implementation uses 5e-6
 DATASET:
   NAME: "CUB"
   NUM_CLASSES: 200
   NUM_ATTRS: 312
-  TRANSFORMS: 'resnet101'
+  GROUPS: "parts"
+  TRANSFORMS: "resnet101"
   ROOT_DIR: "datasets"
 OPTIM:
   LR: 1e-3  # official implementation uses 1e-3

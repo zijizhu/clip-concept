@@ -102,7 +102,7 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     experiment_name = config_path.stem
-    print("Experiment name:", experiment_name)
+    print("Experiment Name:", experiment_name)
     print("Hyperparameters:")
     print(OmegaConf.to_yaml(cfg))
     print("Device:", device)
@@ -142,7 +142,7 @@ def main():
     if cfg.DATASET.NAME == "CUB":
         if cfg.DATASET.TRANSFORMS == "resnet101":
             train_transforms, test_transforms = get_transforms_resnet101()
-        elif cfg.DATASET.TRANSFORMS == "pasrt_discovery":
+        elif cfg.DATASET.TRANSFORMS == "part_discovery":
             train_transforms, test_transforms = get_transforms_part_discovery()
         else:
             raise NotImplementedError
@@ -152,12 +152,14 @@ def main():
             os.path.join(cfg.DATASET.ROOT_DIR, "CUB"),
             num_attrs=num_attrs,
             split="train",
+            groups=cfg.DATASET.GROUPS,
             transforms=train_transforms,
         )
         dataset_val = CUBDataset(
             os.path.join(cfg.DATASET.ROOT_DIR, "CUB"),
             num_attrs=num_attrs,
             split="val",
+            groups=cfg.DATASET.GROUPS,
             transforms=test_transforms,
         )
         dataloader_train = DataLoader(
@@ -192,10 +194,11 @@ def main():
         losses = ["l_total"]
     elif "apn" in experiment_name:
         class_embeddings = dataset_train.attribute_vectors_pt
+        attr_group_ids = dataset_train.attribute_group_indices_pt
         net, loss_fn, optimizer, scheduler = load_apn(
             backbone_name=cfg.MODEL.BACKBONE.NAME,
-            # backbone_weights_path=cfg.MODEL.BACKBONE.CKPT_PATH,
             class_embeddings=class_embeddings,
+            attr_group_ids=attr_group_ids,
             loss_coef_dict=dict(cfg.MODEL.LOSSES),
             dist=cfg.MODEL.DIST,
             lr=cfg.OPTIM.LR,

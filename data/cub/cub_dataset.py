@@ -8,7 +8,7 @@ import torchvision.transforms.functional as f
 from PIL import Image
 from torch.utils.data import Dataset
 
-from .constants import SELECTED_CONCEPTS
+from .constants import PART_GROUPS, SELECTED_CONCEPTS
 
 
 class CUBDataset(Dataset):
@@ -17,6 +17,7 @@ class CUBDataset(Dataset):
         dataset_dir: str,
         num_attrs: int = 312,
         split: str = "train",
+        groups: str | None = None,
         transforms: t.Compose | None = None,
     ) -> None:
         super().__init__()
@@ -65,6 +66,24 @@ class CUBDataset(Dataset):
         # Load and process attributes #
         ###############################
 
+        # Load attribute names
+        attr_df = pd.read_csv(
+            os.path.join(dataset_dir, "attributes.txt"),
+            sep=' ',
+            usecols=[1],
+            header=None,
+            names=['attribute']
+        )
+        attr_df['attribute'] = attr_df['attribute'].str.replace('_', ' ', regex=True)
+        attr_df[['attribute_group', 'value']] = attr_df['attribute'].str.split('::', n=1, expand=True)
+
+        if num_attrs == 112:
+            attr_df = attr_df.iloc[SELECTED_CONCEPTS]
+
+        self.attributes_df = attr_df.reset_index(drop=True)
+
+        # Load attribute vectors
+        assert num_attrs in [112, 312]
         attribute_vectors = np.loadtxt(
             os.path.join(
                 dataset_dir,
@@ -73,20 +92,9 @@ class CUBDataset(Dataset):
                 "class_attribute_labels_continuous.txt",
             )
         )
-        attributes_df = pd.read_csv(
-            "datasets/CUB/attributes.txt",
-            sep=" ",
-            header=None,
-            names=["attribute_id", "attribute_name"],
-        ).drop(columns=["attribute_id"])
-
-        self.attributes_df = attributes_df.reset_index(drop=True)
-
-        assert num_attrs in [112, 312]
+        
         if num_attrs == 112:
             attribute_vectors = attribute_vectors[:, SELECTED_CONCEPTS]
-        else:
-            attribute_vectors = attribute_vectors
 
         # Normalize attribute vectors
         attribute_vectors /= np.linalg.norm(attribute_vectors, ord=2, axis=-1, keepdims=True)
@@ -104,9 +112,41 @@ class CUBDataset(Dataset):
         )
 
         self.class_names = (
-            class_names_df["class_name"].str.split(".").str[-1].replace("_", " ", regex=True).to_list()
+            class_names_df["class_name"]
+            .str
+            .split(".")
+            .str[-1]
+            .replace("_", " ", regex=True)
+            .to_list()
         )
+
+        #################################
+        # Load part or attribute groups #
+        #################################
+        assert groups in ["parts", "attributes"]
+        self.groups = groups
+        if groups == 'parts':
+            assert num_attrs == 312
+            self.group_names = sorted(PART_GROUPS.keys())
+            group_indices = np.zeros(312, dtype=int)
+            for i, name in enumerate(self.group_names):
+                attr_indices = PART_GROUPS[name]
+                group_indices[attr_indices] = i
+            self.attribute_group_indices = group_indices
+        elif groups == 'attributes':
+            self.group_names = sorted(self.attributes_df['attribute_group'].unique())
+            self.attribute_group_indices = (self.attributes_df['attribute_group']
+                                            .map(self.group_names.index)
+                                            .to_numpy())
+        else:
+            raise NotImplementedError
+
+
         self.transforms = transforms
+
+    @property
+    def attribute_group_indices_pt(self):
+        return torch.tensor(self.attribute_group_indices, dtype=torch.long)
 
     @property
     def attribute_vectors_pt(self):
