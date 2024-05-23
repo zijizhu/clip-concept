@@ -19,7 +19,7 @@ OPTIM:
   LR: 1e-3  # official implementation uses 1e-3
   EPOCHS: 30
   BATCH_SIZE: 64  # official implementation uses 64
-  STEP_SIZE: 10
+  STEP_SIZE: 3
   BETA1: 0.5
   BETA2: 0.999
   GAMMA: 0.5
