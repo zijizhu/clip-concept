@@ -17,7 +17,7 @@ DATASET:
   ROOT_DIR: "datasets"
 OPTIM:
   LR: 1e-3  # official implementation uses 1e-3
-  EPOCHS: 30
+  EPOCHS: 15
   BATCH_SIZE: 64  # official implementation uses 64
   STEP_SIZE: 3
   BETA1: 0.5
