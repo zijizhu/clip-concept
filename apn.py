@@ -98,11 +98,9 @@ class APNLoss(nn.Module):
     @staticmethod
     def l_dec(prototypes: torch.Tensor, group_ids: torch.Tensor):
         '''Loss function for decorrelation of attribute groups'''
-        print("group_ids.shape:", group_ids.shape)
         all_group_losses = []
         for i in torch.unique(group_ids):
             mask = group_ids == i
-            print("mask.shape:", mask.shape)
             group_loss = prototypes[mask, :].pow(2).sum().sqrt()
             all_group_losses.append(group_loss)
         return sum(all_group_losses)
